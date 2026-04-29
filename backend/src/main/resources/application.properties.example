@@ -1,0 +1,4 @@
+server.port=778
+spring.application.name=savantle
+cors.allowed.origins=http://localhost:3000,https://yourdomain.com
+management.endpoints.web.exposure.include=health

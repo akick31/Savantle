@@ -1,0 +1,18 @@
+# Claude
+.claude/
+
+# Backend
+backend/build/
+backend/.gradle/
+backend/src/main/resources/application.properties
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# IDE
+.idea/
+*.iml
+.DS_Store
