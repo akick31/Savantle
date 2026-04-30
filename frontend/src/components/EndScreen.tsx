@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { GameStatus, PlayerInfo, HintData } from '../types';
-import { buildShareText } from '../utils/share';
+import { buildShareText, calculateSaventleNumber } from '../utils/share';
 
 interface EndScreenProps {
   status: GameStatus;
   playerInfo: PlayerInfo;
   guessCount: number;
+  date: string;
   hints: HintData[];
   currentStreak: number;
 }
 
-export default function EndScreen({ status, playerInfo, guessCount, hints, currentStreak }: EndScreenProps) {
+export default function EndScreen({ status, playerInfo, guessCount, date, hints, currentStreak }: EndScreenProps) {
   const [copied, setCopied] = useState(false);
   const won = status === 'won';
 
   const handleShare = async () => {
-    const text = buildShareText(status, guessCount);
+    const saventleNum = calculateSaventleNumber(date);
+    const text = buildShareText(status, guessCount, currentStreak, saventleNum);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);

@@ -53,7 +53,6 @@ export default function GamePlay({ dailyData, players, guesses, hints, isSubmitt
           players={players}
           onSubmit={onGuess}
           disabled={isSubmitting}
-          guessNumber={guessNumber}
         />
       </div>
     </div>

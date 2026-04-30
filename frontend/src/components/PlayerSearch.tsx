@@ -6,10 +6,9 @@ interface PlayerSearchProps {
   players: PlayerSearchItem[];
   onSubmit: (name: string) => void;
   disabled: boolean;
-  guessNumber: number;
 }
 
-export default function PlayerSearch({ players, onSubmit, disabled, guessNumber }: PlayerSearchProps) {
+export default function PlayerSearch({ players, onSubmit, disabled }: PlayerSearchProps) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<PlayerSearchItem[]>([]);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -110,15 +109,16 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
               onFocus={() => { if (suggestions.length > 0) setShowDropdown(true); }}
               disabled={disabled}
               placeholder="Enter full player name (e.g., Aaron Judge)"
-              className="w-full bg-sv-card border border-sv-border rounded-lg px-4 py-2.5 text-sv-text placeholder-sv-muted text-sm focus:outline-none focus:border-sv-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-sv-card border border-sv-border rounded-lg px-4 py-2.5 text-sv-text placeholder-sv-muted text-sm focus:outline-none focus:border-sv-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-sm"
               autoComplete="off"
               spellCheck={false}
+              style={{ fontSize: '16px' }}
             />
 
             {showDropdown && suggestions.length > 0 && (
               <div
                 ref={dropdownRef}
-                className="absolute z-20 top-full left-0 right-0 mt-1 bg-sv-card border border-sv-border rounded-lg shadow-xl overflow-hidden"
+                className="absolute z-20 left-0 right-0 bg-sv-card border border-sv-border rounded-lg shadow-xl overflow-hidden md:top-full md:mt-1 bottom-full md:bottom-auto mb-1 md:mb-0 max-h-48 overflow-y-auto"
               >
                 {suggestions.map((p, i) => (
                   <button
@@ -142,7 +142,7 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
             disabled={disabled || !query.trim()}
             className="px-4 py-2.5 bg-sv-accent text-sv-bg rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
           >
-            Guess {guessNumber}
+            Guess
           </button>
         </div>
 

@@ -70,6 +70,7 @@ export default function App() {
               status={status}
               playerInfo={playerInfo}
               guessCount={guesses.length}
+              date={dailyData.date}
               hints={hints}
               currentStreak={stats.currentStreak}
             />
