@@ -20,12 +20,13 @@ class GameController(private val gameResponseService: GameResponseService) {
     @GetMapping("/screenshot/{date}")
     fun getScreenshot(@PathVariable date: String): ResponseEntity<ByteArray> {
         val response = gameResponseService.getScreenshot(date)
-        return response.ok()?.let {
-            ResponseEntity.ok()
+        if (response.statusCode?.is2xxSuccessful == true && response.body != null) {
+            return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
-                .body(it)
-        } ?: response
+                .body(response.body)
+        }
+        return response
     }
 
     @GetMapping("/players")
