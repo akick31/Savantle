@@ -6,17 +6,16 @@ interface EndScreenProps {
   status: GameStatus;
   playerInfo: PlayerInfo;
   guessCount: number;
-  date: string;
   hints: HintData[];
   currentStreak: number;
 }
 
-export default function EndScreen({ status, playerInfo, guessCount, date, hints, currentStreak }: EndScreenProps) {
+export default function EndScreen({ status, playerInfo, guessCount, hints, currentStreak }: EndScreenProps) {
   const [copied, setCopied] = useState(false);
   const won = status === 'won';
 
   const handleShare = async () => {
-    const text = buildShareText(status, guessCount, date);
+    const text = buildShareText(status, guessCount);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
