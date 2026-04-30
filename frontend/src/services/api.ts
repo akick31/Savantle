@@ -1,6 +1,9 @@
 import { DailyData, GuessResult, PlayerSearchItem } from '../types';
 
-const BASE = '/api/v1/savantle';
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+const BASE = API_ORIGIN
+  ? `${API_ORIGIN.replace(/\/+$/, '')}/api/v1/savantle`
+  : '/api/v1/savantle';
 
 export async function fetchDailyPlayer(date?: string): Promise<DailyData> {
   const url = date ? `${BASE}/daily?date=${date}` : `${BASE}/daily`;

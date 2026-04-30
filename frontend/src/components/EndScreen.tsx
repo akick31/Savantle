@@ -8,9 +8,10 @@ interface EndScreenProps {
   guessCount: number;
   date: string;
   hints: HintData[];
+  currentStreak: number;
 }
 
-export default function EndScreen({ status, playerInfo, guessCount, date, hints }: EndScreenProps) {
+export default function EndScreen({ status, playerInfo, guessCount, date, hints, currentStreak }: EndScreenProps) {
   const [copied, setCopied] = useState(false);
   const won = status === 'won';
 
@@ -36,6 +37,9 @@ export default function EndScreen({ status, playerInfo, guessCount, date, hints 
       <div className="text-center">
         <p className={`font-bold text-lg ${won ? 'text-sv-green' : 'text-sv-red'}`}>
           {won ? `Got it in ${guessCount}!` : 'Better luck tomorrow.'}
+        </p>
+        <p className="mt-1 text-xs text-sv-muted">
+          Current win streak: {currentStreak} day{currentStreak === 1 ? '' : 's'}
         </p>
       </div>
 

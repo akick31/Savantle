@@ -15,8 +15,8 @@ export default function HowToPlay({ open, onClose }: HowToPlayProps) {
 
         <div className="space-y-3">
           {[
-            'You\'ll see a screenshot of the player\'s percentile rankings — just like Baseball Savant, with the player\'s identity hidden.',
-            'Type the player\'s full name to make a guess (for example, "Aaron Judge"). Accents are not required.',
+            'You\'ll see a screenshot of the player\'s Baseball Savant percentile rankings with the player\'s identity hidden.',
+            'Type the player\'s full name to make a guess (for example, "Aaron Judge"). Accents are not required and auto-fill is provided.',
             'Each wrong guess reveals a new hint about the player.',
           ].map((text, i) => (
             <div key={i} className="flex gap-3">
@@ -46,7 +46,7 @@ export default function HowToPlay({ open, onClose }: HowToPlayProps) {
 
         <div className="border-t border-sv-border pt-4">
           <p className="text-xs text-sv-muted">
-            A new player is revealed every day at midnight. Play daily to keep your streak going.
+            A new player is revealed every day at midnight.
           </p>
         </div>
 

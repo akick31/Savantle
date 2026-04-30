@@ -22,6 +22,7 @@ data class MlbPlayer(
     val mlbamId: Int,
     val fullName: String,
     val position: String,
+    val throwingHand: String?,
     val team: MlbTeam
 )
 
@@ -85,7 +86,7 @@ class MlbRosterService {
     }
 
     private fun fetchRoster(team: MlbTeam, rosterType: String): List<MlbPlayer> {
-        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/$rosterType"
+        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/$rosterType?hydrate=person"
         val json = get(url)
         val root = mapper.readTree(json)
 
@@ -95,9 +96,17 @@ class MlbRosterService {
             val id = person.path("id").asInt()
             val name = person.path("fullName").asText()
             val posAbbr = pos.path("abbreviation").asText()
+            val handCode = person.path("pitchHand").path("code").asText().uppercase().trim()
+                .takeIf { it == "L" || it == "R" || it == "S" }
 
             if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@mapNotNull null
-            MlbPlayer(mlbamId = id, fullName = name, position = posAbbr, team = team)
+            MlbPlayer(
+                mlbamId = id,
+                fullName = name,
+                position = posAbbr,
+                throwingHand = handCode,
+                team = team
+            )
         }
     }
 

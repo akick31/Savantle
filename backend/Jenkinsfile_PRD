@@ -1,0 +1,89 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'savantle-backend-prd'
+        CONTAINER_NAME = 'Savantle-Backend-PRD'
+        DOCKERFILE = 'Dockerfile_PRD'
+        APP_PROPERTIES = './src/main/resources/application.properties'
+        DB_USERNAME = credentials('DB_USERNAME')
+        DB_PASSWORD = credentials('DB_PASSWORD')
+        JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
+        PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out the Savantle Backend project...'
+                checkout scm
+            }
+        }
+
+        stage('Get Version') {
+            steps {
+                script {
+                    def latestTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0'", returnStdout: true).trim()
+                    env.VERSION = latestTag
+                    currentBuild.description = "Version: ${env.VERSION}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - Version: ${env.VERSION}"
+                }
+            }
+        }
+
+        stage('Stop and Remove Existing Container') {
+            steps {
+                script {
+                    sh """
+                        docker stop ${CONTAINER_NAME} || echo "Savantle Backend is not running."
+                        docker rm ${CONTAINER_NAME} || echo "No old Savantle instance to remove."
+                    """
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('backend') {
+                    script {
+                        def propertiesContent = """
+                            server.port=163
+                            spring.datasource.url=jdbc:mariadb://51.81.32.234:3306/savantle
+                            spring.datasource.username=${env.DB_USERNAME}
+                            spring.datasource.password=${env.DB_PASSWORD}
+                            spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+                            spring.jpa.hibernate.ddl-auto=update
+                            spring.jpa.show-sql=false
+                            spring.jackson.property-naming-strategy=SNAKE_CASE
+                            management.endpoints.web.exposure.include=*
+                        """.stripIndent()
+
+                        writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent
+                    }
+                    sh 'chmod +x gradlew || true'
+                    sh './gradlew clean build -x test'
+                }
+            }
+        }
+
+        stage('Build New Docker Image') {
+            steps {
+                dir('backend') {
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:${DOCKERFILE} ."
+                }
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                sh "docker run --network='host' -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh 'docker system prune -f'
+            }
+        }
+    }
+}

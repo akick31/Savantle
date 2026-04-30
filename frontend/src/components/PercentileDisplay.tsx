@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { PlayerType } from '../types';
 
 interface PercentileDisplayProps {
@@ -8,7 +8,9 @@ interface PercentileDisplayProps {
 
 export default function PercentileDisplay({ date, playerType }: PercentileDisplayProps) {
   const [errored, setErrored] = useState(false);
-  const src = `/api/v1/savantle/screenshot/${date}`;
+  // Bust stale browser cache so old mock screenshots are not reused.
+  const cacheBuster = useRef(Date.now());
+  const src = `/api/v1/savantle/screenshot/${date}?cb=${cacheBuster.current}`;
 
   return (
     <div className="bg-sv-card rounded-xl border border-sv-border p-4">

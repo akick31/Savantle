@@ -72,6 +72,7 @@ export default function App() {
               guessCount={guesses.length}
               date={dailyData.date}
               hints={hints}
+              currentStreak={stats.currentStreak}
             />
           </>
         )}

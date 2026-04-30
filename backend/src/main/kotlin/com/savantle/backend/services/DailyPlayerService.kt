@@ -79,6 +79,58 @@ class DailyPlayerService(
         }
     }
 
+    @Transactional
+    fun curateSpecificPlayerForDate(date: LocalDate, playerName: String): Map<String, Any> {
+        if (playerName.isBlank()) {
+            throw IllegalArgumentException("Player name is required")
+        }
+
+        if (rosterCache.isEmpty() || rosterCacheDate != LocalDate.now()) {
+            refreshRoster()
+        }
+        val players = rosterCache
+        if (players.isEmpty()) {
+            throw IllegalStateException("Roster cache is empty")
+        }
+
+        val normalized = normalizeForSearch(playerName)
+        val candidate = players.firstOrNull { normalizeForSearch(it.fullName) == normalized }
+            ?: throw IllegalArgumentException("Player not found in current MLB roster: $playerName")
+
+        val pitcherPositions = setOf("SP", "RP", "P")
+        val isPitcher = candidate.position in pitcherPositions
+        val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
+            ?: throw IllegalStateException("Could not capture screenshot for ${candidate.fullName}")
+
+        repository.deleteByGameDate(date)
+        val saved = repository.save(
+            DailyPlayer(
+                gameDate = date,
+                mlbamId = candidate.mlbamId,
+                fullName = candidate.fullName,
+                normalizedName = normalizeForSearch(candidate.fullName),
+                position = candidate.position,
+                throwingHand = candidate.throwingHand,
+                isPitcher = isPitcher,
+                teamName = candidate.team.name,
+                teamAbbr = candidate.team.abbreviation,
+                league = candidate.team.league,
+                division = candidate.team.division,
+                savantUrl = result.savantUrl,
+                screenshot = result.pngBytes
+            )
+        )
+        log.info("Manually curated $date: ${saved.fullName}")
+
+        return mapOf(
+            "date" to saved.gameDate.toString(),
+            "fullName" to saved.fullName,
+            "position" to formatPosition(saved),
+            "mlbamId" to saved.mlbamId.toString(),
+            "teamName" to saved.teamName
+        )
+    }
+
     private fun curateForDate(date: LocalDate, pool: List<MlbPlayer>): DailyPlayer? {
         val pitcherPositions = setOf("SP", "RP", "P")
         val seed = date.year.toLong() * 10000 + date.monthValue * 100 + date.dayOfMonth
@@ -98,6 +150,7 @@ class DailyPlayerService(
                 fullName = candidate.fullName,
                 normalizedName = normalizeForSearch(candidate.fullName),
                 position = candidate.position,
+                throwingHand = candidate.throwingHand,
                 isPitcher = isPitcher,
                 teamName = candidate.team.name,
                 teamAbbr = candidate.team.abbreviation,
@@ -157,7 +210,7 @@ class DailyPlayerService(
 
     private fun buildHint(player: DailyPlayer, guessNumber: Int): Map<String, String> {
         return when (guessNumber) {
-            1 -> mapOf("type" to "POSITION", "label" to "Position", "value" to player.position)
+            1 -> mapOf("type" to "POSITION", "label" to "Position", "value" to formatPosition(player))
             2 -> mapOf("type" to "LEAGUE", "label" to "League", "value" to player.league)
             3 -> mapOf("type" to "DIVISION", "label" to "Division", "value" to player.division)
             4 -> mapOf("type" to "TEAM", "label" to "Team", "value" to player.teamName)
@@ -168,7 +221,7 @@ class DailyPlayerService(
     private fun buildPlayerInfo(player: DailyPlayer): Map<String, String> {
         return mapOf(
             "fullName" to player.fullName,
-            "position" to player.position,
+            "position" to formatPosition(player),
             "teamName" to player.teamName,
             "teamAbbr" to player.teamAbbr,
             "league" to player.league,
@@ -183,6 +236,21 @@ class DailyPlayerService(
         return nfd.replace(Regex("[\\u0300-\\u036f]"), "")
             .lowercase()
             .trim()
+    }
+
+    private fun formatPosition(player: DailyPlayer): String {
+        if (!player.isPitcher) return player.position
+        val pitcherRole = when (player.position) {
+            "SP", "RP" -> player.position
+            else -> "P"
+        }
+        val hand = when (player.throwingHand?.uppercase()) {
+            "L" -> "LHP"
+            "R" -> "RHP"
+            "S" -> "SHP"
+            else -> "HP"
+        }
+        return "$pitcherRole ($hand)"
     }
 
     fun isReady(): Boolean = repository.existsByGameDate(LocalDate.now())

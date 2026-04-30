@@ -22,7 +22,7 @@ export default function Header({ onHowToPlay, onStats, onSettings }: HeaderProps
         </button>
       </div>
 
-      <h1 className="text-2xl font-bold text-sv-accent tracking-tight">
+      <h1 className="text-xl md:text-2xl font-pixel text-sv-accent">
         Savantle
       </h1>
 

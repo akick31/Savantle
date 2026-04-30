@@ -9,4 +9,5 @@ import java.time.LocalDate
 interface DailyPlayerRepository : JpaRepository<DailyPlayer, Long> {
     fun findByGameDate(gameDate: LocalDate): DailyPlayer?
     fun existsByGameDate(gameDate: LocalDate): Boolean
+    fun deleteByGameDate(gameDate: LocalDate): Long
 }

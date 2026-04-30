@@ -21,8 +21,8 @@ export default function StatsModal({ open, onClose, stats }: StatsModalProps) {
           {[
             [stats.gamesPlayed, 'Played'],
             [winPct + '%', 'Win %'],
-            [stats.currentStreak, 'Streak'],
-            [stats.maxStreak, 'Best'],
+            [stats.currentStreak, 'Win Streak'],
+            [stats.maxStreak, 'Best Streak'],
           ].map(([val, label]) => (
             <div key={String(label)} className="flex flex-col gap-1">
               <span className="text-2xl font-bold text-sv-text">{val}</span>

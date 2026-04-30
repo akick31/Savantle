@@ -1,0 +1,18 @@
+# Build Stage
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+ENV NODE_OPTIONS=--max_old_space_size=1024
+RUN npm run build
+
+# Development Stage
+FROM node:20-alpine
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=build /app/dist ./dist
+
+# Updated to port 921 for Savantle DEV
+EXPOSE 921
+CMD ["serve", "-s", "dist", "-l", "921"]

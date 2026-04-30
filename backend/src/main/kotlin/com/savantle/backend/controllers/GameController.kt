@@ -13,6 +13,11 @@ data class GuessRequest(
     val guessNumber: Int = 1
 )
 
+data class ManualCurateRequest(
+    val date: String,
+    val playerName: String
+)
+
 @RestController
 @RequestMapping("/api/v1/savantle")
 class GameController(private val dailyPlayerService: DailyPlayerService) {
@@ -66,6 +71,26 @@ class GameController(private val dailyPlayerService: DailyPlayerService) {
             ResponseEntity.ok(dailyPlayerService.validateGuess(request.playerName, date, request.guessNumber))
         } catch (e: Exception) {
             ResponseEntity.internalServerError().body(mapOf("error" to "Failed to process guess"))
+        }
+    }
+
+    @PostMapping("/admin/curate")
+    fun curatePlayerForDate(@RequestBody request: ManualCurateRequest): ResponseEntity<Any> {
+        if (request.date.isBlank()) {
+            return ResponseEntity.badRequest().body(mapOf("error" to "Date is required"))
+        }
+        if (request.playerName.isBlank()) {
+            return ResponseEntity.badRequest().body(mapOf("error" to "Player name is required"))
+        }
+        return try {
+            val date = LocalDate.parse(request.date)
+            ResponseEntity.ok(dailyPlayerService.curateSpecificPlayerForDate(date, request.playerName))
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().body(mapOf("error" to (e.message ?: "Invalid request")))
+        } catch (e: IllegalStateException) {
+            ResponseEntity.status(503).body(mapOf("error" to (e.message ?: "Service unavailable")))
+        } catch (e: Exception) {
+            ResponseEntity.internalServerError().body(mapOf("error" to "Failed to curate player"))
         }
     }
 }

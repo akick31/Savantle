@@ -38,6 +38,9 @@ class DailyPlayer(
     @Column(name = "position", nullable = false, length = 16)
     var position: String,
 
+    @Column(name = "throwing_hand", length = 1)
+    var throwingHand: String? = null,
+
     @Column(name = "is_pitcher", nullable = false)
     var isPitcher: Boolean,
 

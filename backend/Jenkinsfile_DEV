@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'savantle-backend-dev'
+        CONTAINER_NAME = 'Savantle-Backend-DEV'
+        DOCKERFILE = 'Dockerfile_DEV'
+        APP_PROPERTIES = './src/main/resources/application.properties'
+        DB_USERNAME = credentials('DB_USERNAME')
+        DB_PASSWORD = credentials('DB_PASSWORD')
+        JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
+        PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
+    }
+
+    stages {
+        // ... (Checkout and Get Version stages identical to PRD)
+
+        stage('Build') {
+            steps {
+                dir('backend') {
+                    script {
+                        def propertiesContent = """
+                            server.port=164
+                            spring.datasource.url=jdbc:mariadb://51.81.32.234:3306/savantle_dev
+                            spring.datasource.username=${env.DB_USERNAME}
+                            spring.datasource.password=${env.DB_PASSWORD}
+                            spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+                            spring.jpa.hibernate.ddl-auto=update
+                        """.stripIndent()
+
+                        writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent
+                    }
+                    sh 'chmod +x gradlew || true'
+                    sh './gradlew clean build -x test'
+                }
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                sh "docker run --network='host' -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+            }
+        }
+
+        // ... (Cleanup stages identical)
+    }
+}
