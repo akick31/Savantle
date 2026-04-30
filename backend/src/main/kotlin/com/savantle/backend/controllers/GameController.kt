@@ -1,5 +1,6 @@
 package com.savantle.backend.controllers
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.savantle.backend.services.DailyPlayerService
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -8,9 +9,9 @@ import org.springframework.web.bind.annotation.*
 import java.time.LocalDate
 
 data class GuessRequest(
-    val playerName: String = "",
-    val date: String? = null,
-    val guessNumber: Int = 1
+    @JsonProperty("playerName") val playerName: String,
+    @JsonProperty("date") val date: String?,
+    @JsonProperty("guessNumber") val guessNumber: Int
 )
 
 data class ManualCurateRequest(
