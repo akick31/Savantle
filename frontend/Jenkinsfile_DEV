@@ -37,7 +37,7 @@ pipeline {
                         // Pointing to your VPS IP on a new dev port (e.g., 164 for Dev API)
                         sh """
                             cat <<EOF > .env
-                            VITE_API_BASE_URL=http://51.81.32.234:164/api/v1/savantle
+                            VITE_API_BASE_URL=https://dev.api.savantle.com/api/v1/savantle
                             EOF
                         """
                     }

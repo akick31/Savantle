@@ -7,9 +7,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    define: {
+      'process.env.VITE_API_BASE_URL': JSON.stringify(apiBase),
+    },
     server: {
       port: 3000,
-      // Use local backend by default in dev; disable proxy if API base URL is explicitly set.
       proxy: apiBase ? undefined : {
         '/api': 'http://localhost:778',
       },
