@@ -55,6 +55,7 @@ pipeline {
                             spring.jpa.hibernate.ddl-auto=update
                             spring.jpa.show-sql=false
                             spring.jackson.property-naming-strategy=SNAKE_CASE
+                            cors.allowed.origins=https://savantle.com
                             management.endpoints.web.exposure.include=*
                         """.stripIndent()
 

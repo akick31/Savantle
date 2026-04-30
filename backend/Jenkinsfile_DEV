@@ -26,6 +26,7 @@ pipeline {
                             spring.datasource.password=${env.DB_PASSWORD}
                             spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
                             spring.jpa.hibernate.ddl-auto=update
+                            cors.allowed.origins=https://dev.savantle.com
                         """.stripIndent()
 
                         writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent
