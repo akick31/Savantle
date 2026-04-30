@@ -5,7 +5,6 @@ export type GameStatus = 'loading' | 'playing' | 'won' | 'lost';
 export interface DailyData {
   date: string;
   playerType: PlayerType;
-  stats: Record<string, number>;
 }
 
 export interface HintData {
@@ -22,6 +21,7 @@ export interface PlayerInfo {
   league: string;
   division: string;
   mlbamId: string;
+  savantUrl?: string;
 }
 
 export interface GuessResult {

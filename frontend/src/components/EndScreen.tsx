@@ -27,14 +27,15 @@ export default function EndScreen({ status, playerInfo, guessCount, date, hints 
 
   const imageUrl = `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/h_120,w_107/v1/people/${playerInfo.mlbamId}/headshot/67/current`;
 
+  const savantUrl =
+    playerInfo.savantUrl ||
+    `https://baseballsavant.mlb.com/savant-player/${playerInfo.mlbamId}`;
+
   return (
     <div className="bg-sv-card border border-sv-border rounded-xl p-5 space-y-5">
       <div className="text-center">
-        <div className={`text-3xl mb-1 ${won ? 'text-sv-green' : 'text-sv-red'}`}>
-          {won ? '🎉' : '😔'}
-        </div>
         <p className={`font-bold text-lg ${won ? 'text-sv-green' : 'text-sv-red'}`}>
-          {won ? `Got it in ${guessCount}!` : 'Better luck tomorrow!'}
+          {won ? `Got it in ${guessCount}!` : 'Better luck tomorrow.'}
         </p>
       </div>
 
@@ -51,6 +52,19 @@ export default function EndScreen({ status, playerInfo, guessCount, date, hints 
             {playerInfo.position} · {playerInfo.teamName}
           </p>
           <p className="text-xs text-sv-muted">{playerInfo.division}</p>
+          <a
+            href={savantUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 mt-1.5 text-xs text-sv-accent hover:underline"
+          >
+            View on Baseball Savant
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </a>
         </div>
       </div>
 
@@ -72,7 +86,7 @@ export default function EndScreen({ status, playerInfo, guessCount, date, hints 
         onClick={handleShare}
         className="w-full py-3 bg-sv-accent text-sv-bg rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
       >
-        {copied ? '✓ Copied!' : '📋 Share Result'}
+        {copied ? 'Copied!' : 'Share Result'}
       </button>
     </div>
   );

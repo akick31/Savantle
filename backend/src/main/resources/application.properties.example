@@ -2,3 +2,15 @@ server.port=778
 spring.application.name=savantle
 cors.allowed.origins=http://localhost:3000,https://yourdomain.com
 management.endpoints.web.exposure.include=health
+
+spring.datasource.url=jdbc:mariadb://51.81.32.234:3306/savantle?createDatabaseIfNotExist=true
+spring.datasource.username=YOUR_DB_USERNAME
+spring.datasource.password=YOUR_DB_PASSWORD
+spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MariaDBDialect
+spring.jpa.open-in-view=false
+
+savantle.curator.days-ahead=7
+savantle.curator.cron=0 0 4 * * *

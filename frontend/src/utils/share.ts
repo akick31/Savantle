@@ -17,12 +17,12 @@ export function buildShareText(
   const dateDisplay = formatDateDisplay(date);
   const guesses = status === 'won' ? guessCount : 5;
   const emoji = Array.from({ length: 5 }, (_, i) => {
-    if (status === 'won' && i === guessCount - 1) return '✅';
-    if (i < guesses) return '❌';
+    if (status === 'won' && i === guessCount - 1) return '🟩';
+    if (i < guesses) return '🟥';
     return '⬜';
   }).join('');
 
   const result = status === 'won' ? `${guessCount}/5` : 'X/5';
 
-  return `⚾ Savantle ${dateDisplay}\n${emoji} ${result}\nsavantle.com`;
+  return `Savantle ${dateDisplay}\n${emoji} ${result}\nsavantle.com`;
 }

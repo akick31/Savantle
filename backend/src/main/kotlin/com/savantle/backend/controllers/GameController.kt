@@ -1,6 +1,8 @@
 package com.savantle.backend.controllers
 
 import com.savantle.backend.services.DailyPlayerService
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.time.LocalDate
@@ -18,13 +20,27 @@ class GameController(private val dailyPlayerService: DailyPlayerService) {
     @GetMapping("/daily")
     fun getDailyPlayer(@RequestParam(required = false) date: String?): ResponseEntity<Any> {
         return try {
-            if (!dailyPlayerService.isReady()) {
-                return ResponseEntity.status(503).body(mapOf("error" to "Server is still loading player data, please try again shortly."))
-            }
             val targetDate = if (date != null) LocalDate.parse(date) else LocalDate.now()
             ResponseEntity.ok(dailyPlayerService.getDailyPlayerResponse(targetDate))
+        } catch (e: IllegalStateException) {
+            ResponseEntity.status(503).body(mapOf("error" to "Daily player not yet available, please try again shortly."))
         } catch (e: Exception) {
             ResponseEntity.internalServerError().body(mapOf("error" to "Failed to load daily player"))
+        }
+    }
+
+    @GetMapping("/screenshot/{date}")
+    fun getScreenshot(@PathVariable date: String): ResponseEntity<ByteArray> {
+        return try {
+            val target = LocalDate.parse(date)
+            val bytes = dailyPlayerService.getScreenshot(target)
+                ?: return ResponseEntity.notFound().build()
+            ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                .body(bytes)
+        } catch (e: Exception) {
+            ResponseEntity.internalServerError().build()
         }
     }
 

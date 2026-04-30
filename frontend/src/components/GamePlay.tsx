@@ -20,7 +20,7 @@ export default function GamePlay({ dailyData, players, guesses, hints, isSubmitt
 
   return (
     <div className="space-y-4">
-      <PercentileDisplay stats={dailyData.stats} playerType={dailyData.playerType} />
+      <PercentileDisplay date={dailyData.date} playerType={dailyData.playerType} />
 
       <HintDisplay hints={hints} guesses={guesses} />
 

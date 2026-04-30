@@ -22,8 +22,8 @@ export default function Header({ onHowToPlay, onStats, onSettings }: HeaderProps
         </button>
       </div>
 
-      <h1 className="text-2xl font-bold text-sv-accent tracking-tight flex items-center gap-2">
-        ⚾ Savantle
+      <h1 className="text-2xl font-bold text-sv-accent tracking-tight">
+        Savantle
       </h1>
 
       <div className="flex items-center gap-1">

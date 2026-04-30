@@ -5,7 +5,7 @@ interface LoadingScreenProps {
 export default function LoadingScreen({ error }: LoadingScreenProps) {
   return (
     <div className="min-h-screen bg-sv-bg flex flex-col items-center justify-center px-4">
-      <h1 className="text-3xl font-bold text-sv-accent mb-6">⚾ Savantle</h1>
+      <h1 className="text-3xl font-bold text-sv-accent mb-6">Savantle</h1>
       {error ? (
         <div className="text-center space-y-3">
           <p className="text-sv-red font-medium">Failed to load</p>

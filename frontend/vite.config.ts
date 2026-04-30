@@ -6,11 +6,6 @@ const TODAY = new Date().toISOString().split('T')[0]
 const MOCK_DAILY = {
   date: TODAY,
   playerType: 'BATTER',
-  stats: {
-    'Exit Velo': 87, 'Hard Hit%': 72, 'Barrel%': 65,
-    'xBA': 91, 'xSLG': 88, 'xwOBA': 93,
-    'K%': 78, 'BB%': 82, 'Whiff%': 61, 'Chase Rate': 55, 'Sprint Speed': 70,
-  },
 }
 
 const MOCK_PLAYERS = [
@@ -31,6 +26,23 @@ const MOCK_HINTS: Record<number, object> = {
   4: { type: 'TEAM', label: 'Team', value: 'New York Yankees' },
 }
 
+const MOCK_PLAYER_INFO = {
+  fullName: 'Aaron Judge',
+  position: 'RF',
+  teamName: 'New York Yankees',
+  teamAbbr: 'NYY',
+  league: 'AL',
+  division: 'AL East',
+  mlbamId: '592450',
+  savantUrl: 'https://baseballsavant.mlb.com/savant-player/aaron-judge-592450?stats=statcast-r-batter',
+}
+
+// Tiny placeholder PNG (1x1 transparent pixel) for the screenshot mock endpoint.
+const PLACEHOLDER_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+)
+
 export default defineConfig({
   plugins: [
     react(),
@@ -39,6 +51,14 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
           if (!req.url?.startsWith('/api/v1/savantle')) return next()
+
+          if (req.url.includes('/screenshot/')) {
+            res.setHeader('Content-Type', 'image/png')
+            res.setHeader('Cache-Control', 'public, max-age=86400')
+            res.end(PLACEHOLDER_PNG)
+            return
+          }
+
           res.setHeader('Content-Type', 'application/json')
 
           if (req.url.includes('/daily')) {
@@ -54,7 +74,7 @@ export default defineConfig({
                 if (guessNumber >= 5) {
                   res.end(JSON.stringify({
                     correct: false, gameOver: true,
-                    playerInfo: { fullName: 'Aaron Judge', position: 'RF', teamName: 'New York Yankees', teamAbbr: 'NYY', league: 'AL', division: 'AL East', mlbamId: '592450' },
+                    playerInfo: MOCK_PLAYER_INFO,
                   }))
                 } else {
                   res.end(JSON.stringify({ correct: false, hint: MOCK_HINTS[guessNumber] ?? null }))
@@ -70,8 +90,6 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
-    proxy: {
-      // Only used when the mock plugin doesn't match (i.e., in future with real backend)
-    },
+    proxy: {},
   },
 })

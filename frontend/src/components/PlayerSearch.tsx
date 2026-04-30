@@ -147,7 +147,7 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
         </div>
 
         <p className="text-xs text-sv-muted mt-1.5">
-          Full name required · Accents optional (e.g., "moran" matches "Morán")
+          Full name required · Accents optional
         </p>
       </div>
     </div>
