@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       proxy: apiBase ? undefined : {
-        '/api': 'http://localhost:778',
+        '/api': 'http://localhost:163',
       },
     },
   }

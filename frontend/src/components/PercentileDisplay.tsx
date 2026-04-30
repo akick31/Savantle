@@ -11,7 +11,7 @@ export default function PercentileDisplay({ date, playerType }: PercentileDispla
   const [errored, setErrored] = useState(false);
   // Bust stale browser cache so old mock screenshots are not reused.
   const cacheBuster = useRef(Date.now());
-  const src = `${BASE_URL}/api/v1/savantle/screenshot/${date}?cb=${cacheBuster.current}`;
+  const src = `${BASE_URL}/screenshot/${date}?cb=${cacheBuster.current}`;
 
   return (
     <div className="bg-sv-card rounded-xl border border-sv-border p-4">
