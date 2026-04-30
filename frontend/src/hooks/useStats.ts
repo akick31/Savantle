@@ -37,8 +37,8 @@ export function useStats() {
 
     if (current.lastPlayedDate === today) return current;
 
-    const newStreak = current.lastPlayedDate === getYesterday()
-      ? current.currentStreak + (won ? 1 : 0)
+    const newStreak = current.lastPlayedDate === getYesterday() && won
+      ? current.currentStreak + 1
       : won ? 1 : 0;
 
     const dist = { ...current.guessDistribution };
