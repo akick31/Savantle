@@ -45,6 +45,70 @@ class MlbRosterService {
         205 to "NL Central"
     )
 
+    fun fetchSeasonStartDate(year: Int): LocalDate? {
+        return try {
+            val json = get("https://statsapi.mlb.com/api/v1/seasons/$year?sportId=1")
+            val dateStr = mapper.readTree(json)
+                .path("seasons").path(0)
+                .path("regularSeasonStartDate").asText()
+            if (dateStr.isBlank()) null else LocalDate.parse(dateStr)
+        } catch (e: Exception) {
+            log.warn("Could not fetch season start date for $year: ${e.message}")
+            null
+        }
+    }
+
+    fun fetchQualifiedPlayerIds(year: Int, minBatterPa: Int, minPitcherIp: Double): Set<Int> {
+        val qualified = mutableSetOf<Int>()
+
+        try {
+            val battingJson = get(
+                "https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting" +
+                "&gameType=R&season=$year&limit=5000&playerPool=All"
+            )
+            mapper.readTree(battingJson).path("stats").forEach { group ->
+                group.path("splits").forEach { split ->
+                    val id = split.path("player").path("id").asInt()
+                    val pa = split.path("stat").path("plateAppearances").asInt()
+                    if (id > 0 && pa >= minBatterPa) qualified.add(id)
+                }
+            }
+            log.info("Qualified batters (PA >= $minBatterPa): ${qualified.size}")
+        } catch (e: Exception) {
+            log.warn("Failed to fetch batting qualification stats: ${e.message}")
+        }
+
+        val beforePitching = qualified.size
+        try {
+            val pitchingJson = get(
+                "https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching" +
+                "&gameType=R&season=$year&limit=5000&playerPool=All"
+            )
+            mapper.readTree(pitchingJson).path("stats").forEach { group ->
+                group.path("splits").forEach { split ->
+                    val id = split.path("player").path("id").asInt()
+                    val ipStr = split.path("stat").path("inningsPitched").asText("0")
+                    val ip = parseInningsPitched(ipStr)
+                    if (id > 0 && ip >= minPitcherIp) qualified.add(id)
+                }
+            }
+            log.info("Qualified pitchers (IP >= $minPitcherIp): ${qualified.size - beforePitching}")
+        } catch (e: Exception) {
+            log.warn("Failed to fetch pitching qualification stats: ${e.message}")
+        }
+
+        return qualified
+    }
+
+    private fun parseInningsPitched(ip: String): Double {
+        return try {
+            val parts = ip.split(".")
+            val innings = parts[0].toDoubleOrNull() ?: 0.0
+            val outs = parts.getOrNull(1)?.toDoubleOrNull() ?: 0.0
+            innings + (outs / 3.0)
+        } catch (_: Exception) { 0.0 }
+    }
+
     fun fetchActiveRosters(): List<MlbPlayer> {
         val year = LocalDate.now().year
         val teams = fetchTeams(year)

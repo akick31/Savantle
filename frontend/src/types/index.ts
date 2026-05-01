@@ -34,6 +34,7 @@ export interface GuessResult {
 export interface PlayerSearchItem {
   fullName: string;
   normalizedName: string;
+  playerType: 'BATTER' | 'PITCHER';
 }
 
 export interface StoredGame {

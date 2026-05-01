@@ -4,11 +4,13 @@ import { normalizeForSearch } from '../utils/normalize';
 
 interface PlayerSearchProps {
   players: PlayerSearchItem[];
+  playerType: 'BATTER' | 'PITCHER';
   onSubmit: (name: string) => void;
   disabled: boolean;
 }
 
-export default function PlayerSearch({ players, onSubmit, disabled }: PlayerSearchProps) {
+export default function PlayerSearch({ players, playerType, onSubmit, disabled }: PlayerSearchProps) {
+  const filteredPlayers = players.filter(p => p.playerType === playerType);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<PlayerSearchItem[]>([]);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -19,10 +21,10 @@ export default function PlayerSearch({ players, onSubmit, disabled }: PlayerSear
   const getSuggestions = useCallback((q: string): PlayerSearchItem[] => {
     if (q.length < 2) return [];
     const norm = normalizeForSearch(q);
-    return players
+    return filteredPlayers
       .filter(p => p.normalizedName.includes(norm))
       .slice(0, 8);
-  }, [players]);
+  }, [filteredPlayers]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -47,7 +49,7 @@ export default function PlayerSearch({ players, onSubmit, disabled }: PlayerSear
 
     // Require a full name match from the player list
     const norm = normalizeForSearch(trimmed);
-    const match = players.find(p => p.normalizedName === norm);
+    const match = filteredPlayers.find(p => p.normalizedName === norm);
     if (!match) {
       inputRef.current?.setCustomValidity('Please select a valid player from the list.');
       inputRef.current?.reportValidity();

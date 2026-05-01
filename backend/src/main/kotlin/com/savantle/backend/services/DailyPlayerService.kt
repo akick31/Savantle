@@ -3,6 +3,7 @@ package com.savantle.backend.services
 import com.savantle.backend.model.DailyPlayer
 import com.savantle.backend.repositories.DailyPlayerRepository
 import jakarta.annotation.PostConstruct
+import jakarta.persistence.EntityManager
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
@@ -10,13 +11,18 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.text.Normalizer
 import java.time.LocalDate
+import kotlin.random.Random
 
 @Service
 class DailyPlayerService(
     private val mlbRosterService: MlbRosterService,
     private val screenshotService: ScreenshotService,
     private val repository: DailyPlayerRepository,
-    @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int
+    private val entityManager: EntityManager,
+    @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int,
+    @Value("\${savantle.qualification.batter-min-pa:100}") private val minBatterPa: Int,
+    @Value("\${savantle.qualification.pitcher-min-ip:25.0}") private val minPitcherIp: Double,
+    @Value("\${savantle.qualification.early-season-days:21}") private val earlySeasonDays: Long
 ) {
 
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)
@@ -24,6 +30,8 @@ class DailyPlayerService(
     @Volatile private var rosterCache: List<MlbPlayer> = emptyList()
     @Volatile private var rosterCacheDate: LocalDate? = null
     @Volatile private var allPlayerNames: List<String> = emptyList()
+    @Volatile private var qualifiedIds: Set<Int> = emptySet()
+    @Volatile private var seasonStartDate: LocalDate? = null
 
     @PostConstruct
     fun onStartup() {
@@ -45,6 +53,7 @@ class DailyPlayerService(
 
     private fun refreshRoster() {
         try {
+            val year = LocalDate.now().year
             val players = mlbRosterService.fetchActiveRosters()
             if (players.isNotEmpty()) {
                 rosterCache = players
@@ -52,9 +61,21 @@ class DailyPlayerService(
                 allPlayerNames = players.map { it.fullName }.distinct().sorted()
                 log.info("Roster refreshed: ${players.size} active players")
             }
+            if (seasonStartDate == null) {
+                seasonStartDate = mlbRosterService.fetchSeasonStartDate(year)
+                log.info("Season start date: $seasonStartDate")
+            }
+            val ids = mlbRosterService.fetchQualifiedPlayerIds(year, minBatterPa, minPitcherIp)
+            qualifiedIds = ids
+            log.info("Qualification pool: ${ids.size} players")
         } catch (e: Exception) {
             log.error("Failed to refresh roster", e)
         }
+    }
+
+    private fun isEarlySeason(date: LocalDate): Boolean {
+        val start = seasonStartDate ?: return true
+        return date < start.plusDays(earlySeasonDays)
     }
 
     @Transactional
@@ -103,6 +124,7 @@ class DailyPlayerService(
             ?: throw IllegalStateException("Could not capture screenshot for ${candidate.fullName}")
 
         repository.deleteByGameDate(date)
+        entityManager.flush()
         val saved = repository.save(
             DailyPlayer(
                 gameDate = date,
@@ -133,13 +155,28 @@ class DailyPlayerService(
 
     private fun curateForDate(date: LocalDate, pool: List<MlbPlayer>): DailyPlayer? {
         val pitcherPositions = setOf("SP", "RP", "P")
-        val seed = date.year.toLong() * 10000 + date.monthValue * 100 + date.dayOfMonth
-        val ordered = pool.sortedBy { it.mlbamId }
-        val size = ordered.size
-        val startIdx = (seed % size).toInt()
 
-        for (i in 0 until size) {
-            val candidate = ordered[(startIdx + i) % size]
+        // Apply qualification filter unless we're in the early-season grace period
+        val qualifiedPool = if (isEarlySeason(date) || qualifiedIds.isEmpty()) {
+            log.info("Early season or no qualification data — using full pool for $date")
+            pool
+        } else {
+            val filtered = pool.filter { it.mlbamId in qualifiedIds }
+            log.info("Qualification filter: ${pool.size} -> ${filtered.size} players for $date")
+            if (filtered.isEmpty()) pool else filtered
+        }
+
+        // Collect mlbamIds used in the past 30 days to avoid repeats
+        val recentIds = repository
+            .findByGameDateBetween(date.minusDays(30), date.minusDays(1))
+            .map { it.mlbamId }
+            .toSet()
+
+        // Prefer candidates not seen recently; fall back to full qualified pool if needed
+        val preferred = qualifiedPool.filter { it.mlbamId !in recentIds }
+        val candidates = (if (preferred.isNotEmpty()) preferred else qualifiedPool).shuffled(Random)
+
+        for (candidate in candidates) {
             val isPitcher = candidate.position in pitcherPositions
             val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
                 ?: continue
@@ -177,9 +214,30 @@ class DailyPlayerService(
     }
 
     fun getPlayerList(): List<Map<String, String>> {
-        return allPlayerNames.map {
-            mapOf("fullName" to it, "normalizedName" to normalizeForSearch(it))
+        val pitcherPositions = setOf("SP", "RP", "P")
+        val today = LocalDate.now()
+
+        val upcomingPlayers = repository
+            .findByGameDateBetween(today, today.plusDays(daysAhead.toLong()))
+
+        val upcomingEntries = upcomingPlayers.associate {
+            it.fullName to if (it.isPitcher) "PITCHER" else "BATTER"
         }
+
+        val rosterEntries = rosterCache.associate {
+            it.fullName to if (it.position in pitcherPositions) "PITCHER" else "BATTER"
+        }
+
+        return (rosterEntries + upcomingEntries)
+            .entries
+            .sortedBy { it.key }
+            .map { (name, type) ->
+                mapOf(
+                    "fullName" to name,
+                    "normalizedName" to normalizeForSearch(name),
+                    "playerType" to type
+                )
+            }
     }
 
     fun validateGuess(playerName: String, date: LocalDate, guessNumber: Int): Map<String, Any> {
@@ -240,17 +298,11 @@ class DailyPlayerService(
 
     private fun formatPosition(player: DailyPlayer): String {
         if (!player.isPitcher) return player.position
-        val pitcherRole = when (player.position) {
-            "SP", "RP" -> player.position
-            else -> "P"
-        }
-        val hand = when (player.throwingHand?.uppercase()) {
+        return when (player.throwingHand?.uppercase()) {
             "L" -> "LHP"
             "R" -> "RHP"
-            "S" -> "SHP"
-            else -> "HP"
+            else -> "P"
         }
-        return "$pitcherRole ($hand)"
     }
 
     fun isReady(): Boolean = repository.existsByGameDate(LocalDate.now())

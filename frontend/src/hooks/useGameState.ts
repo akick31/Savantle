@@ -34,8 +34,9 @@ export function useGameState() {
   useEffect(() => {
     async function init() {
       try {
+        const localDate = getLocalDate();
         const [data, playerList] = await Promise.all([
-          fetchDailyPlayer(),
+          fetchDailyPlayer(localDate),
           fetchPlayerList(),
         ]);
         setDailyData(data);

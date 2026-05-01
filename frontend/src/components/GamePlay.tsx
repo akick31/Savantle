@@ -17,6 +17,7 @@ const MAX_GUESSES = 5;
 export default function GamePlay({ dailyData, players, guesses, hints, isSubmitting, onGuess }: GamePlayProps) {
   const guessesLeft = MAX_GUESSES - guesses.length;
   const guessNumber = guesses.length + 1;
+  const latestHint = hints.length > 0 ? hints[hints.length - 1] : null;
 
   return (
     <div className="space-y-4">
@@ -39,18 +40,23 @@ export default function GamePlay({ dailyData, players, guesses, hints, isSubmitt
             <div
               key={i}
               className={`flex-1 h-1.5 rounded-full transition-colors ${
-                i < guesses.length
-                  ? 'bg-sv-red'
-                  : i === guesses.length
-                  ? 'bg-sv-accent'
-                  : 'bg-sv-border'
+                i < guesses.length ? 'bg-sv-red' : 'bg-sv-border'
               }`}
             />
           ))}
         </div>
 
+        {latestHint && (
+          <div className="flex items-center gap-2 bg-sv-bg border border-sv-accent/30 rounded-lg px-3 py-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-sv-accent flex-shrink-0" />
+            <span className="text-xs text-sv-muted">{latestHint.label}:</span>
+            <span className="text-sm font-semibold text-sv-accent">{latestHint.value}</span>
+          </div>
+        )}
+
         <PlayerSearch
           players={players}
+          playerType={dailyData.playerType}
           onSubmit={onGuess}
           disabled={isSubmitting}
         />

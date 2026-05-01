@@ -29,7 +29,7 @@ export default function HowToPlay({ open, onClose }: HowToPlayProps) {
         <div className="border-t border-sv-border pt-4 space-y-2">
           <p className="font-medium text-sv-text">Hints (revealed after each wrong guess)</p>
           {[
-            ['Guess 2', 'Player position (e.g., SS, SP)'],
+            ['Guess 2', 'Position (e.g., SS, 3B) or pitcher handedness (LHP, RHP)'],
             ['Guess 3', 'League (AL or NL)'],
             ['Guess 4', 'Division (e.g., AL East)'],
             ['Guess 5', 'Team name'],
@@ -46,7 +46,7 @@ export default function HowToPlay({ open, onClose }: HowToPlayProps) {
 
         <div className="border-t border-sv-border pt-4">
           <p className="text-xs text-sv-muted">
-            A new player is revealed every day at midnight.
+            A new player is revealed every day at midnight. Players are selected from active 26-man MLB rosters up to 7 days in advance, so a player who has been removed from an active roster in the last 7 days may still appear.
           </p>
         </div>
 

@@ -27,7 +27,7 @@ export function buildShareText(
   }).join('');
 
   const result = status === 'won' ? `${guessCount}/5` : 'X/5';
-  const streakText = currentStreak > 0 ? ` - Streak: ${currentStreak}` : '';
+  const streakLine = currentStreak > 0 ? `\nWinning streak: ${currentStreak}` : '';
 
-  return `Savantle | #${saventleNumber}${streakText}\n${emoji} ${result}`;
+  return `Savantle | #${saventleNumber}\n${emoji} ${result}${streakLine}`;
 }

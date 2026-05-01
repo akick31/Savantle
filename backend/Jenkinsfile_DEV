@@ -8,6 +8,7 @@ pipeline {
         APP_PROPERTIES = './src/main/resources/application.properties'
         DB_USERNAME = credentials('DB_USERNAME')
         DB_PASSWORD = credentials('DB_PASSWORD')
+        SAVANTLE_ADMIN_KEY = credentials('SAVANTLE_ADMIN_KEY')
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
     }
@@ -27,6 +28,7 @@ pipeline {
                             spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
                             spring.jpa.hibernate.ddl-auto=update
                             cors.allowed.origins=https://dev.savantle.com
+                            savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
                         """.stripIndent()
 
                         writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent
