@@ -78,26 +78,25 @@ export default function App() {
         )}
       </main>
 
-      <footer className="mt-8 pb-4 text-center">
-        <p className="text-sv-muted text-xs space-x-1">
-          <a
-            href="https://buymeacoffee.com/flying_porygon"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 hover:text-sv-accent transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-              <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-              <line x1="6" y1="1" x2="6" y2="4" />
-              <line x1="10" y1="1" x2="10" y2="4" />
-              <line x1="14" y1="1" x2="14" y2="4" />
-            </svg>
-            <span>Buy me a coffee</span>
-          </a>
-          <span>—</span>
-          <span className="opacity-50">Stats via Baseball Savant & MLB Stats API</span>
+      <footer className="mt-8 pb-4 text-center space-y-1.5">
+        <p className="text-sv-muted text-xs opacity-50">
+          Stats via Baseball Savant & MLB Stats API
         </p>
+        <a
+          href="https://buymeacoffee.com/flying_porygon"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sv-muted text-xs hover:text-sv-accent transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+            <line x1="6" y1="1" x2="6" y2="4" />
+            <line x1="10" y1="1" x2="10" y2="4" />
+            <line x1="14" y1="1" x2="14" y2="4" />
+          </svg>
+          <span>Buy me a coffee</span>
+        </a>
       </footer>
 
       <HowToPlay open={htpOpen} onClose={() => setHtpOpen(false)} />
