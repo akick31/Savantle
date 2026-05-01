@@ -81,22 +81,24 @@ class DailyPlayerService(
     @Transactional
     fun curateUpcomingDays() {
         val today = LocalDate.now()
+        val futureDate = today.plusDays(daysAhead.toLong())
         val players = rosterCache
         if (players.isEmpty()) {
             log.warn("Roster cache empty; skipping curation")
             return
         }
 
-        for (offset in 0..daysAhead) {
-            val date = today.plusDays(offset.toLong())
-            if (repository.existsByGameDate(date)) continue
-            val curated = curateForDate(date, players)
-            if (curated != null) {
-                repository.save(curated)
-                log.info("Curated $date: ${curated.fullName}")
-            } else {
-                log.warn("Could not curate a player for $date")
-            }
+        if (repository.existsByGameDate(futureDate)) {
+            log.info("Player already curated for $futureDate")
+            return
+        }
+
+        val curated = curateForDate(futureDate, players)
+        if (curated != null) {
+            repository.save(curated)
+            log.info("Curated $futureDate: ${curated.fullName}")
+        } else {
+            log.warn("Could not curate a player for $futureDate")
         }
     }
 

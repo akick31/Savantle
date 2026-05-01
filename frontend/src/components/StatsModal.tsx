@@ -51,6 +51,23 @@ export default function StatsModal({ open, onClose, stats }: StatsModalProps) {
                 </div>
               );
             })}
+            {(() => {
+              const losses = stats.gamesPlayed - stats.gamesWon;
+              const pct = stats.gamesPlayed > 0 ? Math.round((losses / maxDist) * 100) : 0;
+              return (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-sv-muted w-3 flex-shrink-0">X</span>
+                  <div className="flex-1 bg-sv-border rounded-full h-5 overflow-hidden">
+                    <div
+                      className="h-full bg-sv-red rounded-full flex items-center justify-end pr-1.5 transition-all"
+                      style={{ width: `${Math.max(pct, losses > 0 ? 10 : 0)}%` }}
+                    >
+                      {losses > 0 && <span className="text-xs font-bold text-sv-bg">{losses}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
