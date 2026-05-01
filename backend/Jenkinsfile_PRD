@@ -59,6 +59,11 @@ pipeline {
                             cors.allowed.origins=https://savantle.com
                             management.endpoints.web.exposure.include=*
                             savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
+                            savantle.curator.days-ahead=7
+                            savantle.curator.cron=0 0 4 * * *
+                            savantle.qualification.batter-min-pa=75
+                            savantle.qualification.pitcher-min-ip=10.0
+                            savantle.qualification.early-season-days=30
                         """.stripIndent()
 
                         writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent

@@ -20,9 +20,9 @@ class DailyPlayerService(
     private val repository: DailyPlayerRepository,
     private val entityManager: EntityManager,
     @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int,
-    @Value("\${savantle.qualification.batter-min-pa:100}") private val minBatterPa: Int,
-    @Value("\${savantle.qualification.pitcher-min-ip:25.0}") private val minPitcherIp: Double,
-    @Value("\${savantle.qualification.early-season-days:21}") private val earlySeasonDays: Long
+    @Value("\${savantle.qualification.batter-min-pa:75}") private val minBatterPa: Int,
+    @Value("\${savantle.qualification.pitcher-min-ip:15.0}") private val minPitcherIp: Double,
+    @Value("\${savantle.qualification.early-season-days:30}") private val earlySeasonDays: Long
 ) {
 
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)

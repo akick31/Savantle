@@ -16,9 +16,9 @@ savantle.curator.days-ahead=7
 savantle.curator.cron=0 0 4 * * *
 
 # Minimum stats to qualify for player selection (Baseball Savant thresholds)
-savantle.qualification.batter-min-pa=100
-savantle.qualification.pitcher-min-ip=25.0
+savantle.qualification.batter-min-pa=75
+savantle.qualification.pitcher-min-ip=15.0
 # Days from season start where qualification is ignored (early season grace period)
-savantle.qualification.early-season-days=21
+savantle.qualification.early-season-days=30
 
 savantle.admin.api-key=YOUR_SECRET_KEY_HERE
