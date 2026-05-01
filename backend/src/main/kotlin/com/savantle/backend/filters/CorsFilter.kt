@@ -25,7 +25,7 @@ class CorsFilter(
             httpResponse.setHeader("Access-Control-Allow-Origin", origin)
         }
         httpResponse.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        httpResponse.setHeader("Access-Control-Allow-Headers", "Content-Type")
+        httpResponse.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key")
         httpResponse.setHeader("Access-Control-Max-Age", "3600")
 
         if ("OPTIONS" == httpRequest.method) {

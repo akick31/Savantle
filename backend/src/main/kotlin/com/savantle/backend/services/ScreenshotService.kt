@@ -6,34 +6,32 @@ import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
 import com.microsoft.playwright.options.LoadState
 import com.microsoft.playwright.options.WaitForSelectorState
+import com.savantle.backend.model.ScreenshotResult
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.text.Normalizer
 
-data class ScreenshotResult(
-    val savantUrl: String,
-    val pngBytes: ByteArray
-)
-
 @Service
 class ScreenshotService {
+
+    companion object {
+        private val PERCENTILE_SELECTORS = listOf(
+            "#percentileRankings",
+            "div.percentile-rankings",
+            "[id*='percentile']",
+            ".stat-percentile-wrapper",
+            "#player-percentile"
+        )
+        private const val PERCENTILE_HEADING_SELECTOR =
+            "text=/\\d{4}\\s+MLB\\s+Percentile\\s+Rankings|MLB\\s+Percentile\\s+Rankings/i"
+    }
 
     private val log = LoggerFactory.getLogger(ScreenshotService::class.java)
 
     private var playwright: Playwright? = null
     private var browser: Browser? = null
-
-    // Fallback selectors for the percentile rankings section.
-    private val PERCENTILE_SELECTORS = listOf(
-        "#percentileRankings",
-        "div.percentile-rankings",
-        "[id*='percentile']",
-        ".stat-percentile-wrapper",
-        "#player-percentile"
-    )
-    private val PERCENTILE_HEADING_SELECTOR = "text=/\\d{4}\\s+MLB\\s+Percentile\\s+Rankings|MLB\\s+Percentile\\s+Rankings/i"
 
     @PostConstruct
     fun init() {
@@ -72,13 +70,10 @@ class ScreenshotService {
         )
         try {
             val page = context.newPage()
-
-            // Set navigation timeout; don't wait for network idle
             page.setDefaultNavigationTimeout(60_000.0)
             page.setDefaultTimeout(60_000.0)
-
             page.navigate(url)
-            // Wait for DOM + initial JS to fire; skip NETWORKIDLE which never settles on Savant
+            // Savant never reaches NETWORKIDLE; wait for DOM + initial JS only
             page.waitForLoadState(LoadState.DOMCONTENTLOADED)
 
             val element =
@@ -90,7 +85,6 @@ class ScreenshotService {
                     }
 
             element.scrollIntoViewIfNeeded()
-            // Short settle wait after scroll so charts finish rendering
             page.waitForTimeout(2000.0)
 
             val bytes = element.screenshot()
@@ -160,9 +154,7 @@ class ScreenshotService {
                         .setTimeout(5_000.0)
                 )
                 page.querySelector(sel)
-            }.getOrElse {
-                null
-            }
+            }.getOrElse { null }
         }.also {
             if (it == null) {
                 log.warn("Fallback percentile selectors failed for $fullName ($mlbamId)")

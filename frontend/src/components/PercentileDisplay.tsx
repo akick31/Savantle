@@ -9,7 +9,6 @@ interface PercentileDisplayProps {
 
 export default function PercentileDisplay({ date, playerType }: PercentileDisplayProps) {
   const [errored, setErrored] = useState(false);
-  // Bust stale browser cache so old mock screenshots are not reused.
   const cacheBuster = useRef(Date.now());
   const src = `${BASE_URL}/screenshot/${date}?cb=${cacheBuster.current}`;
 

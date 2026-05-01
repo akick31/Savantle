@@ -1,6 +1,8 @@
 package com.savantle.backend.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.savantle.backend.model.MLBPlayer
+import com.savantle.backend.model.MLBTeam
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.net.URI
@@ -10,26 +12,10 @@ import java.net.http.HttpResponse
 import java.time.Duration
 import java.time.LocalDate
 
-data class MlbTeam(
-    val id: Int,
-    val name: String,
-    val abbreviation: String,
-    val league: String,
-    val division: String
-)
-
-data class MlbPlayer(
-    val mlbamId: Int,
-    val fullName: String,
-    val position: String,
-    val throwingHand: String?,
-    val team: MlbTeam
-)
-
 @Service
-class MlbRosterService {
+class MLBRosterService {
 
-    private val log = LoggerFactory.getLogger(MlbRosterService::class.java)
+    private val log = LoggerFactory.getLogger(MLBRosterService::class.java)
     private val client = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .followRedirects(HttpClient.Redirect.NORMAL)
@@ -109,7 +95,7 @@ class MlbRosterService {
         } catch (_: Exception) { 0.0 }
     }
 
-    fun fetchActiveRosters(): List<MlbPlayer> {
+    fun fetchActiveRosters(): List<MLBPlayer> {
         val year = LocalDate.now().year
         val teams = fetchTeams(year)
         log.info("Found ${teams.size} MLB teams for $year")
@@ -125,7 +111,7 @@ class MlbRosterService {
         }
     }
 
-    private fun fetchTeams(year: Int): List<MlbTeam> {
+    private fun fetchTeams(year: Int): List<MLBTeam> {
         val url = "https://statsapi.mlb.com/api/v1/teams?sportId=1&season=$year"
         val json = get(url)
         val root = mapper.readTree(json)
@@ -145,11 +131,11 @@ class MlbRosterService {
             }
             val division = divisionMap[divisionId] ?: return@mapNotNull null
 
-            MlbTeam(id = id, name = name, abbreviation = abbr, league = league, division = division)
+            MLBTeam(id = id, name = name, abbreviation = abbr, league = league, division = division)
         }
     }
 
-    private fun fetchRoster(team: MlbTeam, rosterType: String): List<MlbPlayer> {
+    private fun fetchRoster(team: MLBTeam, rosterType: String): List<MLBPlayer> {
         val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/$rosterType?hydrate=person"
         val json = get(url)
         val root = mapper.readTree(json)
@@ -164,7 +150,7 @@ class MlbRosterService {
                 .takeIf { it == "L" || it == "R" || it == "S" }
 
             if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@mapNotNull null
-            MlbPlayer(
+            MLBPlayer(
                 mlbamId = id,
                 fullName = name,
                 position = posAbbr,

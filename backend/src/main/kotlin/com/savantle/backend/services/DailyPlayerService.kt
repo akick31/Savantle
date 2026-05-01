@@ -1,6 +1,7 @@
 package com.savantle.backend.services
 
 import com.savantle.backend.model.DailyPlayer
+import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.repositories.DailyPlayerRepository
 import jakarta.annotation.PostConstruct
 import jakarta.persistence.EntityManager
@@ -15,7 +16,7 @@ import kotlin.random.Random
 
 @Service
 class DailyPlayerService(
-    private val mlbRosterService: MlbRosterService,
+    private val mlbRosterService: MLBRosterService,
     private val screenshotService: ScreenshotService,
     private val repository: DailyPlayerRepository,
     private val entityManager: EntityManager,
@@ -25,11 +26,14 @@ class DailyPlayerService(
     @Value("\${savantle.qualification.early-season-days:30}") private val earlySeasonDays: Long
 ) {
 
+    companion object {
+        private val PITCHER_POSITIONS = setOf("SP", "RP", "P")
+    }
+
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)
 
-    @Volatile private var rosterCache: List<MlbPlayer> = emptyList()
+    @Volatile private var rosterCache: List<MLBPlayer> = emptyList()
     @Volatile private var rosterCacheDate: LocalDate? = null
-    @Volatile private var allPlayerNames: List<String> = emptyList()
     @Volatile private var qualifiedIds: Set<Int> = emptySet()
     @Volatile private var seasonStartDate: LocalDate? = null
 
@@ -58,7 +62,6 @@ class DailyPlayerService(
             if (players.isNotEmpty()) {
                 rosterCache = players
                 rosterCacheDate = LocalDate.now()
-                allPlayerNames = players.map { it.fullName }.distinct().sorted()
                 log.info("Roster refreshed: ${players.size} active players")
             }
             if (seasonStartDate == null) {
@@ -80,8 +83,7 @@ class DailyPlayerService(
 
     @Transactional
     fun curateUpcomingDays() {
-        val today = LocalDate.now()
-        val futureDate = today.plusDays(daysAhead.toLong())
+        val futureDate = LocalDate.now().plusDays(daysAhead.toLong())
         val players = rosterCache
         if (players.isEmpty()) {
             log.warn("Roster cache empty; skipping curation")
@@ -120,8 +122,7 @@ class DailyPlayerService(
         val candidate = players.firstOrNull { normalizeForSearch(it.fullName) == normalized }
             ?: throw IllegalArgumentException("Player not found in current MLB roster: $playerName")
 
-        val pitcherPositions = setOf("SP", "RP", "P")
-        val isPitcher = candidate.position in pitcherPositions
+        val isPitcher = candidate.position in PITCHER_POSITIONS
         val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
             ?: throw IllegalStateException("Could not capture screenshot for ${candidate.fullName}")
 
@@ -155,10 +156,7 @@ class DailyPlayerService(
         )
     }
 
-    private fun curateForDate(date: LocalDate, pool: List<MlbPlayer>): DailyPlayer? {
-        val pitcherPositions = setOf("SP", "RP", "P")
-
-        // Apply qualification filter unless we're in the early-season grace period
+    private fun curateForDate(date: LocalDate, pool: List<MLBPlayer>): DailyPlayer? {
         val qualifiedPool = if (isEarlySeason(date) || qualifiedIds.isEmpty()) {
             log.info("Early season or no qualification data — using full pool for $date")
             pool
@@ -168,18 +166,16 @@ class DailyPlayerService(
             if (filtered.isEmpty()) pool else filtered
         }
 
-        // Collect mlbamIds used in the past 30 days to avoid repeats
         val recentIds = repository
             .findByGameDateBetween(date.minusDays(30), date.minusDays(1))
             .map { it.mlbamId }
             .toSet()
 
-        // Prefer candidates not seen recently; fall back to full qualified pool if needed
         val preferred = qualifiedPool.filter { it.mlbamId !in recentIds }
         val candidates = (if (preferred.isNotEmpty()) preferred else qualifiedPool).shuffled(Random)
 
         for (candidate in candidates) {
-            val isPitcher = candidate.position in pitcherPositions
+            val isPitcher = candidate.position in PITCHER_POSITIONS
             val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
                 ?: continue
 
@@ -216,18 +212,15 @@ class DailyPlayerService(
     }
 
     fun getPlayerList(): List<Map<String, String>> {
-        val pitcherPositions = setOf("SP", "RP", "P")
         val today = LocalDate.now()
 
-        val upcomingPlayers = repository
-            .findByGameDateBetween(today, today.plusDays(daysAhead.toLong()))
-
+        val upcomingPlayers = repository.findByGameDateBetween(today, today.plusDays(daysAhead.toLong()))
         val upcomingEntries = upcomingPlayers.associate {
             it.fullName to if (it.isPitcher) "PITCHER" else "BATTER"
         }
 
         val rosterEntries = rosterCache.associate {
-            it.fullName to if (it.position in pitcherPositions) "PITCHER" else "BATTER"
+            it.fullName to if (it.position in PITCHER_POSITIONS) "PITCHER" else "BATTER"
         }
 
         return (rosterEntries + upcomingEntries)
@@ -245,8 +238,7 @@ class DailyPlayerService(
     fun validateGuess(playerName: String, date: LocalDate, guessNumber: Int): Map<String, Any> {
         val player = repository.findByGameDate(date)
             ?: throw IllegalStateException("No player available for $date")
-        val normalizedGuess = normalizeForSearch(playerName)
-        val correct = normalizedGuess == player.normalizedName
+        val correct = normalizeForSearch(playerName) == player.normalizedName
 
         if (correct) {
             return mapOf(

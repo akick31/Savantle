@@ -1,11 +1,8 @@
 import { useState, useCallback } from 'react';
 import { PlayerStats } from '../types';
+import { getLocalDate } from '../utils/share';
 
 const STATS_KEY = 'savantle-stats';
-
-function getLocalDate(date: Date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function getYesterday(): string {
   const d = new Date();

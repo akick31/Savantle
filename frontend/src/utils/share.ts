@@ -1,6 +1,6 @@
 import { GameStatus } from '../types';
 
-const LAUNCH_DATE = new Date('2026-04-30'); // Savantle launch date
+const LAUNCH_DATE = new Date('2026-04-30');
 
 export function getLocalDate(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
