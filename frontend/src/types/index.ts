@@ -11,6 +11,7 @@ export interface HintData {
   type: 'POSITION' | 'LEAGUE' | 'DIVISION' | 'TEAM';
   label: string;
   value: string;
+  confirmed: boolean;
 }
 
 export interface PlayerInfo {
@@ -27,7 +28,7 @@ export interface PlayerInfo {
 export interface GuessResult {
   correct: boolean;
   gameOver?: boolean;
-  hint?: HintData;
+  hints?: HintData[];
   playerInfo?: PlayerInfo;
 }
 

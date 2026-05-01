@@ -255,20 +255,67 @@ class DailyPlayerService(
         if (gameOver) {
             result["playerInfo"] = buildPlayerInfo(player)
         } else {
-            result["hint"] = buildHint(player, guessNumber)
+            result["hints"] = buildHints(player, guessNumber, playerName)
         }
         return result
     }
 
-    private fun buildHint(player: DailyPlayer, guessNumber: Int): Map<String, String> {
-        return when (guessNumber) {
-            1 -> mapOf("type" to "POSITION", "label" to "Position", "value" to formatPosition(player))
-            2 -> mapOf("type" to "LEAGUE", "label" to "League", "value" to player.league)
-            3 -> mapOf("type" to "DIVISION", "label" to "Division", "value" to player.division)
-            4 -> mapOf("type" to "TEAM", "label" to "Team", "value" to player.teamName)
-            else -> emptyMap()
+    private fun buildHints(player: DailyPlayer, guessNumber: Int, guessedPlayerName: String): List<Map<String, Any>> {
+        val hints = mutableListOf<Map<String, Any>>()
+        val confirmedTypes = mutableSetOf<String>()
+
+        val guessedPlayer = rosterCache.firstOrNull {
+            normalizeForSearch(it.fullName) == normalizeForSearch(guessedPlayerName)
         }
+
+        if (guessedPlayer != null) {
+            when {
+                guessedPlayer.team.name == player.teamName -> {
+                    hints += hint("TEAM", "Team", player.teamName, confirmed = true)
+                    hints += hint("DIVISION", "Division", player.division, confirmed = true)
+                    hints += hint("LEAGUE", "League", player.league, confirmed = true)
+                    confirmedTypes += setOf("TEAM", "DIVISION", "LEAGUE")
+                }
+                guessedPlayer.team.division == player.division -> {
+                    hints += hint("DIVISION", "Division", player.division, confirmed = true)
+                    hints += hint("LEAGUE", "League", player.league, confirmed = true)
+                    confirmedTypes += setOf("DIVISION", "LEAGUE")
+                }
+                guessedPlayer.team.league == player.league -> {
+                    hints += hint("LEAGUE", "League", player.league, confirmed = true)
+                    confirmedTypes += "LEAGUE"
+                }
+            }
+
+            if ("POSITION" !in confirmedTypes && formatMLBPlayerPosition(guessedPlayer) == formatPosition(player)) {
+                hints += hint("POSITION", "Position", formatPosition(player), confirmed = true)
+                confirmedTypes += "POSITION"
+            }
+        }
+
+        val scheduledType = when (guessNumber) {
+            1 -> "POSITION"
+            2 -> "LEAGUE"
+            3 -> "DIVISION"
+            4 -> "TEAM"
+            else -> null
+        }
+
+        if (scheduledType != null && scheduledType !in confirmedTypes) {
+            hints += when (scheduledType) {
+                "POSITION" -> hint("POSITION", "Position", formatPosition(player), confirmed = false)
+                "LEAGUE"   -> hint("LEAGUE", "League", player.league, confirmed = false)
+                "DIVISION" -> hint("DIVISION", "Division", player.division, confirmed = false)
+                "TEAM"     -> hint("TEAM", "Team", player.teamName, confirmed = false)
+                else -> return hints
+            }
+        }
+
+        return hints
     }
+
+    private fun hint(type: String, label: String, value: String, confirmed: Boolean): Map<String, Any> =
+        mapOf("type" to type, "label" to label, "value" to value, "confirmed" to confirmed)
 
     private fun buildPlayerInfo(player: DailyPlayer): Map<String, String> {
         return mapOf(
@@ -292,6 +339,15 @@ class DailyPlayerService(
 
     private fun formatPosition(player: DailyPlayer): String {
         if (!player.isPitcher) return player.position
+        return when (player.throwingHand?.uppercase()) {
+            "L" -> "LHP"
+            "R" -> "RHP"
+            else -> "P"
+        }
+    }
+
+    private fun formatMLBPlayerPosition(player: MLBPlayer): String {
+        if (player.position !in PITCHER_POSITIONS) return player.position
         return when (player.throwingHand?.uppercase()) {
             "L" -> "LHP"
             "R" -> "RHP"

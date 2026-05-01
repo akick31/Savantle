@@ -21,12 +21,24 @@ function saveGame(game: StoredGame): void {
   localStorage.setItem(getTodayKey(), JSON.stringify(game));
 }
 
+function mergeHints(existing: HintData[], incoming: HintData[]): HintData[] {
+  const map = new Map(existing.map(h => [h.type, h]));
+  for (const h of incoming) {
+    const current = map.get(h.type);
+    if (!current || h.confirmed) {
+      map.set(h.type, h);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export function useGameState() {
   const [dailyData, setDailyData] = useState<DailyData | null>(null);
   const [players, setPlayers] = useState<PlayerSearchItem[]>([]);
   const [status, setStatus] = useState<GameStatus>('loading');
   const [guesses, setGuesses] = useState<string[]>([]);
   const [hints, setHints] = useState<HintData[]>([]);
+  const [latestHints, setLatestHints] = useState<HintData[]>([]);
   const [playerInfo, setPlayerInfo] = useState<PlayerInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,10 +80,19 @@ export function useGameState() {
       const result = await submitGuess(playerName, guessNumber, dailyData.date);
 
       const newGuesses = [...guesses, playerName];
-      const newHints = result.hint ? [...hints, result.hint] : hints;
+      const incoming = result.hints ?? [];
+      const newHints = mergeHints(hints, incoming);
+
+      const freshHints = incoming.filter(h => {
+        const existing = hints.find(e => e.type === h.type);
+        if (!existing) return true;
+        if (h.confirmed && !existing.confirmed) return true;
+        return false;
+      });
 
       setGuesses(newGuesses);
       setHints(newHints);
+      setLatestHints(freshHints);
 
       let newStatus: GameStatus = 'playing';
       let newPlayerInfo = playerInfo;
@@ -111,6 +132,7 @@ export function useGameState() {
     status,
     guesses,
     hints,
+    latestHints,
     playerInfo,
     error,
     isSubmitting,
