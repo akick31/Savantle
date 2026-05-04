@@ -16,7 +16,7 @@ export default function HowToPlay({ open, onClose }: HowToPlayProps) {
         <div className="space-y-2">
           {[
             'You\'ll see a screenshot of the player\'s Baseball Savant percentile rankings with the player\'s identity hidden.',
-            'You have 5 guesses. Each wrong guess reveals the next hint in order. If your guess already matches that hint (same team, league, division, or position as the answer), it\'s confirmed early and shown in green.',
+            'You have 5 guesses. Each wrong guess reveals the next hint in order. If your guess is on the same team or in the same division as the answer, those hints are confirmed early and shown in green.',
             'Full name required (e.g., "Aaron Judge"). Accents are not required and auto-fill is provided.',
           ].map((text, i) => (
             <div key={i} className="flex gap-2">
@@ -44,7 +44,7 @@ export default function HowToPlay({ open, onClose }: HowToPlayProps) {
             </div>
           ))}
           <p className="text-xs text-sv-muted mt-2">
-            Guessing the correct team also reveals league and division. Guessing the correct division also reveals the league.
+            Early confirmation only applies to team and division. Guessing a player on the correct team reveals team, division, and league. Guessing a player in the correct division reveals division and league. A guess that only shares the same league or position does not confirm anything early.
           </p>
         </div>
 

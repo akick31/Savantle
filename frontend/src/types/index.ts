@@ -36,6 +36,7 @@ export interface PlayerSearchItem {
   fullName: string;
   normalizedName: string;
   playerType: PlayerType;
+  mlbamId: string;
 }
 
 export interface StoredGame {

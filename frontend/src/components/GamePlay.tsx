@@ -59,7 +59,7 @@ export default function GamePlay({ dailyData, players, guesses, hints, isSubmitt
     <div className="space-y-4">
       <PercentileDisplay date={dailyData.date} playerType={dailyData.playerType} />
 
-      {guesses.length > 0 && <HintDisplay guesses={guesses} />}
+      {guesses.length > 0 && <HintDisplay guesses={guesses} players={players} />}
 
       <div className="bg-sv-card border border-sv-border rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">

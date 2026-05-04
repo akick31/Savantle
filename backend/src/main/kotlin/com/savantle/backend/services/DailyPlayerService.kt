@@ -55,6 +55,22 @@ class DailyPlayerService(
         curateUpcomingDays()
     }
 
+    @Scheduled(cron = "0 10 4 * * *")
+    @Transactional
+    fun refreshTodayScreenshot() {
+        val today = LocalDate.now()
+        val player = repository.findByGameDate(today) ?: return
+        val result = screenshotService.capturePercentiles(player.mlbamId, player.fullName, player.isPitcher)
+        if (result != null) {
+            player.screenshot = result.pngBytes
+            player.savantUrl = result.savantUrl
+            repository.save(player)
+            log.info("Refreshed screenshot for today: ${player.fullName}")
+        } else {
+            log.warn("Could not refresh screenshot for today: ${player.fullName}")
+        }
+    }
+
     private fun refreshRoster() {
         try {
             val year = LocalDate.now().year
@@ -214,25 +230,39 @@ class DailyPlayerService(
     fun getPlayerList(): List<Map<String, String>> {
         val today = LocalDate.now()
 
-        val upcomingPlayers = repository.findByGameDateBetween(today, today.plusDays(daysAhead.toLong()))
-        val upcomingEntries = upcomingPlayers.associate {
-            it.fullName to if (it.isPitcher) "PITCHER" else "BATTER"
-        }
+        // Key: normalizedName|playerType -> entry (allows same player as both PITCHER and BATTER for TWP)
+        val combined = LinkedHashMap<String, Map<String, String>>()
 
-        val rosterEntries = rosterCache.associate {
-            it.fullName to if (it.position in PITCHER_POSITIONS) "PITCHER" else "BATTER"
-        }
-
-        return (rosterEntries + upcomingEntries)
-            .entries
-            .sortedBy { it.key }
-            .map { (name, type) ->
-                mapOf(
-                    "fullName" to name,
-                    "normalizedName" to normalizeForSearch(name),
-                    "playerType" to type
+        // Roster cache — TWP players get two entries
+        for (player in rosterCache) {
+            val normalized = normalizeForSearch(player.fullName)
+            val types = if (player.position == "TWP") listOf("PITCHER", "BATTER")
+                        else if (player.position in PITCHER_POSITIONS) listOf("PITCHER")
+                        else listOf("BATTER")
+            for (type in types) {
+                combined["$normalized|$type"] = mapOf(
+                    "fullName" to player.fullName,
+                    "normalizedName" to normalized,
+                    "playerType" to type,
+                    "mlbamId" to player.mlbamId.toString()
                 )
             }
+        }
+
+        // Upcoming/today's curated players — always include, override roster if name matches
+        val upcomingPlayers = repository.findByGameDateBetween(today, today.plusDays(daysAhead.toLong()))
+        for (player in upcomingPlayers) {
+            val normalized = normalizeForSearch(player.fullName)
+            val type = if (player.isPitcher) "PITCHER" else "BATTER"
+            combined["$normalized|$type"] = mapOf(
+                "fullName" to player.fullName,
+                "normalizedName" to normalized,
+                "playerType" to type,
+                "mlbamId" to player.mlbamId.toString()
+            )
+        }
+
+        return combined.values.sortedBy { it["fullName"] }
     }
 
     fun validateGuess(playerName: String, date: LocalDate, guessNumber: Int): Map<String, Any> {
@@ -281,16 +311,10 @@ class DailyPlayerService(
                     hints += hint("LEAGUE", "League", player.league, confirmed = true)
                     confirmedTypes += setOf("DIVISION", "LEAGUE")
                 }
-                guessedPlayer.team.league == player.league -> {
-                    hints += hint("LEAGUE", "League", player.league, confirmed = true)
-                    confirmedTypes += "LEAGUE"
-                }
+                // League-only match is intentionally not confirmed — revealing it early lets
+                // players deduce the opposite league by absence.
             }
-
-            if ("POSITION" !in confirmedTypes && formatMLBPlayerPosition(guessedPlayer) == formatPosition(player)) {
-                hints += hint("POSITION", "Position", formatPosition(player), confirmed = true)
-                confirmedTypes += "POSITION"
-            }
+            // Position/handedness is not confirmed early for the same reason.
         }
 
         val scheduledType = when (guessNumber) {

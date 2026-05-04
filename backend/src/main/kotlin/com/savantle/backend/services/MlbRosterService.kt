@@ -140,7 +140,7 @@ class MLBRosterService {
         val json = get(url)
         val root = mapper.readTree(json)
 
-        return root.path("roster").mapNotNull { p ->
+        return root.path("roster").flatMap { p ->
             val person = p.path("person")
             val pos = p.path("position")
             val id = person.path("id").asInt()
@@ -149,14 +149,17 @@ class MLBRosterService {
             val handCode = person.path("pitchHand").path("code").asText().uppercase().trim()
                 .takeIf { it == "L" || it == "R" || it == "S" }
 
-            if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@mapNotNull null
-            MLBPlayer(
-                mlbamId = id,
-                fullName = name,
-                position = posAbbr,
-                throwingHand = handCode,
-                team = team
-            )
+            if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@flatMap emptyList()
+
+            // Two-way players appear as both pitcher and batter
+            if (posAbbr == "TWP") {
+                listOf(
+                    MLBPlayer(mlbamId = id, fullName = name, position = "SP", throwingHand = handCode, team = team),
+                    MLBPlayer(mlbamId = id, fullName = name, position = "DH", throwingHand = handCode, team = team)
+                )
+            } else {
+                listOf(MLBPlayer(mlbamId = id, fullName = name, position = posAbbr, throwingHand = handCode, team = team))
+            }
         }
     }
 
