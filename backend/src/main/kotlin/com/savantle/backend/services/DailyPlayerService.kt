@@ -27,9 +27,8 @@ class DailyPlayerService(
     @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int,
     @Value("\${savantle.qualification.batter-min-pa:75}") private val minBatterPa: Int,
     @Value("\${savantle.qualification.pitcher-min-ip:15.0}") private val minPitcherIp: Double,
-    @Value("\${savantle.qualification.early-season-days:30}") private val earlySeasonDays: Long
+    @Value("\${savantle.qualification.early-season-days:30}") private val earlySeasonDays: Long,
 ) {
-
     companion object {
         val PITCHER_POSITIONS = setOf("SP", "RP", "P")
         private const val RANDOM_GAME_TTL_HOURS = 6L
@@ -40,13 +39,17 @@ class DailyPlayerService(
 
     // Cache for live (replay) screenshots: date string → (bytes, capturedAt)
     private data class CachedScreenshot(val bytes: ByteArray, val capturedAt: Instant)
+
     private val liveScreenshotCache = ConcurrentHashMap<String, CachedScreenshot>()
 
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)
 
     @Volatile private var rosterCache: List<MLBPlayer> = emptyList()
+
     @Volatile private var rosterCacheDate: LocalDate? = null
+
     @Volatile private var qualifiedIds: Set<Int> = emptySet()
+
     @Volatile private var seasonStartDate: LocalDate? = null
 
     @PostConstruct
@@ -133,7 +136,10 @@ class DailyPlayerService(
     }
 
     @Transactional
-    fun curateSpecificPlayerForDate(date: LocalDate, playerName: String): Map<String, Any> {
+    fun curateSpecificPlayerForDate(
+        date: LocalDate,
+        playerName: String,
+    ): Map<String, Any> {
         if (playerName.isBlank()) {
             throw IllegalArgumentException("Player name is required")
         }
@@ -147,32 +153,35 @@ class DailyPlayerService(
         }
 
         val normalized = normalizeForSearch(playerName)
-        val candidate = players.firstOrNull { normalizeForSearch(it.fullName) == normalized }
-            ?: throw IllegalArgumentException("Player not found in current MLB roster: $playerName")
+        val candidate =
+            players.firstOrNull { normalizeForSearch(it.fullName) == normalized }
+                ?: throw IllegalArgumentException("Player not found in current MLB roster: $playerName")
 
         val isPitcher = candidate.position in PITCHER_POSITIONS
-        val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
-            ?: throw IllegalStateException("Could not capture screenshot for ${candidate.fullName}")
+        val result =
+            screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
+                ?: throw IllegalStateException("Could not capture screenshot for ${candidate.fullName}")
 
         repository.deleteByGameDate(date)
         entityManager.flush()
-        val saved = repository.save(
-            DailyPlayer(
-                gameDate = date,
-                mlbamId = candidate.mlbamId,
-                fullName = candidate.fullName,
-                normalizedName = normalizeForSearch(candidate.fullName),
-                position = candidate.position,
-                throwingHand = candidate.throwingHand,
-                isPitcher = isPitcher,
-                teamName = candidate.team.name,
-                teamAbbr = candidate.team.abbreviation,
-                league = candidate.team.league,
-                division = candidate.team.division,
-                savantUrl = result.savantUrl,
-                screenshot = result.pngBytes
+        val saved =
+            repository.save(
+                DailyPlayer(
+                    gameDate = date,
+                    mlbamId = candidate.mlbamId,
+                    fullName = candidate.fullName,
+                    normalizedName = normalizeForSearch(candidate.fullName),
+                    position = candidate.position,
+                    throwingHand = candidate.throwingHand,
+                    isPitcher = isPitcher,
+                    teamName = candidate.team.name,
+                    teamAbbr = candidate.team.abbreviation,
+                    league = candidate.team.league,
+                    division = candidate.team.division,
+                    savantUrl = result.savantUrl,
+                    screenshot = result.pngBytes,
+                ),
             )
-        )
         log.info("Manually curated $date: ${saved.fullName}")
 
         return mapOf(
@@ -180,32 +189,38 @@ class DailyPlayerService(
             "fullName" to saved.fullName,
             "position" to formatPosition(saved),
             "mlbamId" to saved.mlbamId.toString(),
-            "teamName" to saved.teamName
+            "teamName" to saved.teamName,
         )
     }
 
-    private fun curateForDate(date: LocalDate, pool: List<MLBPlayer>): DailyPlayer? {
-        val qualifiedPool = if (isEarlySeason(date) || qualifiedIds.isEmpty()) {
-            log.info("Early season or no qualification data — using full pool for $date")
-            pool
-        } else {
-            val filtered = pool.filter { it.mlbamId in qualifiedIds }
-            log.info("Qualification filter: ${pool.size} -> ${filtered.size} players for $date")
-            if (filtered.isEmpty()) pool else filtered
-        }
+    private fun curateForDate(
+        date: LocalDate,
+        pool: List<MLBPlayer>,
+    ): DailyPlayer? {
+        val qualifiedPool =
+            if (isEarlySeason(date) || qualifiedIds.isEmpty()) {
+                log.info("Early season or no qualification data — using full pool for $date")
+                pool
+            } else {
+                val filtered = pool.filter { it.mlbamId in qualifiedIds }
+                log.info("Qualification filter: ${pool.size} -> ${filtered.size} players for $date")
+                if (filtered.isEmpty()) pool else filtered
+            }
 
-        val recentIds = repository
-            .findByGameDateBetween(date.minusDays(30), date.minusDays(1))
-            .map { it.mlbamId }
-            .toSet()
+        val recentIds =
+            repository
+                .findByGameDateBetween(date.minusDays(30), date.minusDays(1))
+                .map { it.mlbamId }
+                .toSet()
 
         val preferred = qualifiedPool.filter { it.mlbamId !in recentIds }
         val candidates = (if (preferred.isNotEmpty()) preferred else qualifiedPool).shuffled(Random)
 
         for (candidate in candidates) {
             val isPitcher = candidate.position in PITCHER_POSITIONS
-            val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
-                ?: continue
+            val result =
+                screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
+                    ?: continue
 
             return DailyPlayer(
                 gameDate = date,
@@ -220,18 +235,19 @@ class DailyPlayerService(
                 league = candidate.team.league,
                 division = candidate.team.division,
                 savantUrl = result.savantUrl,
-                screenshot = result.pngBytes
+                screenshot = result.pngBytes,
             )
         }
         return null
     }
 
     fun getDailyPlayerResponse(date: LocalDate): Map<String, Any> {
-        val player = repository.findByGameDate(date)
-            ?: throw IllegalStateException("No player available for $date")
+        val player =
+            repository.findByGameDate(date)
+                ?: throw IllegalStateException("No player available for $date")
         return mapOf(
             "date" to date.toString(),
-            "playerType" to if (player.isPitcher) "PITCHER" else "BATTER"
+            "playerType" to if (player.isPitcher) "PITCHER" else "BATTER",
         )
     }
 
@@ -248,16 +264,22 @@ class DailyPlayerService(
         // Roster cache — TWP players get two entries
         for (player in rosterCache) {
             val normalized = normalizeForSearch(player.fullName)
-            val types = if (player.position == "TWP") listOf("PITCHER", "BATTER")
-                        else if (player.position in PITCHER_POSITIONS) listOf("PITCHER")
-                        else listOf("BATTER")
+            val types =
+                if (player.position == "TWP") {
+                    listOf("PITCHER", "BATTER")
+                } else if (player.position in PITCHER_POSITIONS) {
+                    listOf("PITCHER")
+                } else {
+                    listOf("BATTER")
+                }
             for (type in types) {
-                combined["$normalized|$type"] = mapOf(
-                    "fullName" to player.fullName,
-                    "normalizedName" to normalized,
-                    "playerType" to type,
-                    "mlbamId" to player.mlbamId.toString()
-                )
+                combined["$normalized|$type"] =
+                    mapOf(
+                        "fullName" to player.fullName,
+                        "normalizedName" to normalized,
+                        "playerType" to type,
+                        "mlbamId" to player.mlbamId.toString(),
+                    )
             }
         }
 
@@ -266,34 +288,41 @@ class DailyPlayerService(
         for (player in allCurated) {
             val normalized = normalizeForSearch(player.fullName)
             val type = if (player.isPitcher) "PITCHER" else "BATTER"
-            combined["$normalized|$type"] = mapOf(
-                "fullName" to player.fullName,
-                "normalizedName" to normalized,
-                "playerType" to type,
-                "mlbamId" to player.mlbamId.toString()
-            )
+            combined["$normalized|$type"] =
+                mapOf(
+                    "fullName" to player.fullName,
+                    "normalizedName" to normalized,
+                    "playerType" to type,
+                    "mlbamId" to player.mlbamId.toString(),
+                )
         }
 
         return combined.values.sortedBy { it["fullName"] }
     }
 
-    fun validateGuess(playerName: String, date: LocalDate, guessNumber: Int): Map<String, Any> {
-        val player = repository.findByGameDate(date)
-            ?: throw IllegalStateException("No player available for $date")
+    fun validateGuess(
+        playerName: String,
+        date: LocalDate,
+        guessNumber: Int,
+    ): Map<String, Any> {
+        val player =
+            repository.findByGameDate(date)
+                ?: throw IllegalStateException("No player available for $date")
         val correct = normalizeForSearch(playerName) == player.normalizedName
 
         if (correct) {
             return mapOf(
                 "correct" to true,
-                "playerInfo" to buildPlayerInfo(player)
+                "playerInfo" to buildPlayerInfo(player),
             )
         }
 
         val gameOver = guessNumber >= 5
-        val result = mutableMapOf<String, Any>(
-            "correct" to false,
-            "gameOver" to gameOver
-        )
+        val result =
+            mutableMapOf<String, Any>(
+                "correct" to false,
+                "gameOver" to gameOver,
+            )
         if (gameOver) {
             result["playerInfo"] = buildPlayerInfo(player)
         } else {
@@ -302,13 +331,18 @@ class DailyPlayerService(
         return result
     }
 
-    private fun buildHints(player: DailyPlayer, guessNumber: Int, guessedPlayerName: String): List<Map<String, Any>> {
+    private fun buildHints(
+        player: DailyPlayer,
+        guessNumber: Int,
+        guessedPlayerName: String,
+    ): List<Map<String, Any>> {
         val hints = mutableListOf<Map<String, Any>>()
         val confirmedTypes = mutableSetOf<String>()
 
-        val guessedPlayer = rosterCache.firstOrNull {
-            normalizeForSearch(it.fullName) == normalizeForSearch(guessedPlayerName)
-        }
+        val guessedPlayer =
+            rosterCache.firstOrNull {
+                normalizeForSearch(it.fullName) == normalizeForSearch(guessedPlayerName)
+            }
 
         if (guessedPlayer != null) {
             when {
@@ -329,29 +363,35 @@ class DailyPlayerService(
             // Position/handedness is not confirmed early for the same reason.
         }
 
-        val scheduledType = when (guessNumber) {
-            1 -> "POSITION"
-            2 -> "LEAGUE"
-            3 -> "DIVISION"
-            4 -> "TEAM"
-            else -> null
-        }
+        val scheduledType =
+            when (guessNumber) {
+                1 -> "POSITION"
+                2 -> "LEAGUE"
+                3 -> "DIVISION"
+                4 -> "TEAM"
+                else -> null
+            }
 
         if (scheduledType != null && scheduledType !in confirmedTypes) {
-            hints += when (scheduledType) {
-                "POSITION" -> hint("POSITION", "Position", formatPosition(player), confirmed = false)
-                "LEAGUE"   -> hint("LEAGUE", "League", player.league, confirmed = false)
-                "DIVISION" -> hint("DIVISION", "Division", player.division, confirmed = false)
-                "TEAM"     -> hint("TEAM", "Team", player.teamName, confirmed = false)
-                else -> return hints
-            }
+            hints +=
+                when (scheduledType) {
+                    "POSITION" -> hint("POSITION", "Position", formatPosition(player), confirmed = false)
+                    "LEAGUE" -> hint("LEAGUE", "League", player.league, confirmed = false)
+                    "DIVISION" -> hint("DIVISION", "Division", player.division, confirmed = false)
+                    "TEAM" -> hint("TEAM", "Team", player.teamName, confirmed = false)
+                    else -> return hints
+                }
         }
 
         return hints
     }
 
-    private fun hint(type: String, label: String, value: String, confirmed: Boolean): Map<String, Any> =
-        mapOf("type" to type, "label" to label, "value" to value, "confirmed" to confirmed)
+    private fun hint(
+        type: String,
+        label: String,
+        value: String,
+        confirmed: Boolean,
+    ): Map<String, Any> = mapOf("type" to type, "label" to label, "value" to value, "confirmed" to confirmed)
 
     private fun buildPlayerInfo(player: DailyPlayer): Map<String, String> {
         return mapOf(
@@ -362,7 +402,7 @@ class DailyPlayerService(
             "league" to player.league,
             "division" to player.division,
             "mlbamId" to player.mlbamId.toString(),
-            "savantUrl" to player.savantUrl
+            "savantUrl" to player.savantUrl,
         )
     }
 
@@ -402,8 +442,9 @@ class DailyPlayerService(
         }
 
         val player = repository.findByGameDate(date) ?: return null
-        val result = screenshotService.capturePercentiles(player.mlbamId, player.fullName, player.isPitcher)
-            ?: return null
+        val result =
+            screenshotService.capturePercentiles(player.mlbamId, player.fullName, player.isPitcher)
+                ?: return null
         liveScreenshotCache[dateKey] = CachedScreenshot(result.pngBytes, Instant.now())
         return result.pngBytes
     }
@@ -413,36 +454,39 @@ class DailyPlayerService(
     fun createRandomGame(): Map<String, Any> {
         pruneExpiredRandomGames()
 
-        val pool = if (!isEarlySeason(LocalDate.now()) && qualifiedIds.isNotEmpty()) {
-            val filtered = rosterCache.filter { it.mlbamId in qualifiedIds }
-            filtered.ifEmpty { rosterCache }
-        } else {
-            rosterCache
-        }
+        val pool =
+            if (!isEarlySeason(LocalDate.now()) && qualifiedIds.isNotEmpty()) {
+                val filtered = rosterCache.filter { it.mlbamId in qualifiedIds }
+                filtered.ifEmpty { rosterCache }
+            } else {
+                rosterCache
+            }
         val players = pool.shuffled()
         if (players.isEmpty()) throw IllegalStateException("Roster not loaded yet, try again shortly")
 
         for (candidate in players) {
             val isPitcher = candidate.position in PITCHER_POSITIONS
-            val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
-                ?: continue
+            val result =
+                screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
+                    ?: continue
 
             val gameId = UUID.randomUUID().toString()
-            randomGames[gameId] = RandomGame(
-                gameId = gameId,
-                mlbamId = candidate.mlbamId,
-                fullName = candidate.fullName,
-                normalizedName = normalizeForSearch(candidate.fullName),
-                position = candidate.position,
-                throwingHand = candidate.throwingHand,
-                isPitcher = isPitcher,
-                teamName = candidate.team.name,
-                teamAbbr = candidate.team.abbreviation,
-                league = candidate.team.league,
-                division = candidate.team.division,
-                savantUrl = result.savantUrl,
-                screenshot = result.pngBytes
-            )
+            randomGames[gameId] =
+                RandomGame(
+                    gameId = gameId,
+                    mlbamId = candidate.mlbamId,
+                    fullName = candidate.fullName,
+                    normalizedName = normalizeForSearch(candidate.fullName),
+                    position = candidate.position,
+                    throwingHand = candidate.throwingHand,
+                    isPitcher = isPitcher,
+                    teamName = candidate.team.name,
+                    teamAbbr = candidate.team.abbreviation,
+                    league = candidate.team.league,
+                    division = candidate.team.division,
+                    savantUrl = result.savantUrl,
+                    screenshot = result.pngBytes,
+                )
             log.info("Random game created: ${candidate.fullName} ($gameId)")
             return mapOf("gameId" to gameId, "playerType" to if (isPitcher) "PITCHER" else "BATTER")
         }
@@ -453,7 +497,11 @@ class DailyPlayerService(
         return randomGames[gameId]?.screenshot ?: throw IllegalArgumentException("Game not found or expired")
     }
 
-    fun validateRandomGuess(gameId: String, playerName: String, guessNumber: Int): Map<String, Any> {
+    fun validateRandomGuess(
+        gameId: String,
+        playerName: String,
+        guessNumber: Int,
+    ): Map<String, Any> {
         val game = randomGames[gameId] ?: throw IllegalArgumentException("Game not found or expired")
         val correct = normalizeForSearch(playerName) == game.normalizedName
 
@@ -471,31 +519,39 @@ class DailyPlayerService(
         return result
     }
 
-    private fun buildRandomPlayerInfo(game: RandomGame): Map<String, String> = mapOf(
-        "fullName"  to game.fullName,
-        "position"  to formatRandomPosition(game),
-        "teamName"  to game.teamName,
-        "teamAbbr"  to game.teamAbbr,
-        "league"    to game.league,
-        "division"  to game.division,
-        "mlbamId"   to game.mlbamId.toString(),
-        "savantUrl" to game.savantUrl
-    )
+    private fun buildRandomPlayerInfo(game: RandomGame): Map<String, String> =
+        mapOf(
+            "fullName" to game.fullName,
+            "position" to formatRandomPosition(game),
+            "teamName" to game.teamName,
+            "teamAbbr" to game.teamAbbr,
+            "league" to game.league,
+            "division" to game.division,
+            "mlbamId" to game.mlbamId.toString(),
+            "savantUrl" to game.savantUrl,
+        )
 
     private fun formatRandomPosition(game: RandomGame): String {
         if (!game.isPitcher) return game.position
         return when (game.throwingHand?.uppercase()) {
-            "L" -> "LHP"; "R" -> "RHP"; else -> "P"
+            "L" -> "LHP"
+            "R" -> "RHP"
+            else -> "P"
         }
     }
 
-    private fun buildRandomHints(game: RandomGame, guessNumber: Int, guessedPlayerName: String): List<Map<String, Any>> {
+    private fun buildRandomHints(
+        game: RandomGame,
+        guessNumber: Int,
+        guessedPlayerName: String,
+    ): List<Map<String, Any>> {
         val hints = mutableListOf<Map<String, Any>>()
         val confirmedTypes = mutableSetOf<String>()
 
-        val guessedPlayer = rosterCache.firstOrNull {
-            normalizeForSearch(it.fullName) == normalizeForSearch(guessedPlayerName)
-        }
+        val guessedPlayer =
+            rosterCache.firstOrNull {
+                normalizeForSearch(it.fullName) == normalizeForSearch(guessedPlayerName)
+            }
 
         if (guessedPlayer != null) {
             when {
@@ -513,17 +569,23 @@ class DailyPlayerService(
             }
         }
 
-        val scheduledType = when (guessNumber) {
-            1 -> "POSITION"; 2 -> "LEAGUE"; 3 -> "DIVISION"; 4 -> "TEAM"; else -> null
-        }
-        if (scheduledType != null && scheduledType !in confirmedTypes) {
-            hints += when (scheduledType) {
-                "POSITION" -> hint("POSITION", "Position", formatRandomPosition(game), confirmed = false)
-                "LEAGUE"   -> hint("LEAGUE", "League", game.league, confirmed = false)
-                "DIVISION" -> hint("DIVISION", "Division", game.division, confirmed = false)
-                "TEAM"     -> hint("TEAM", "Team", game.teamName, confirmed = false)
-                else -> return hints
+        val scheduledType =
+            when (guessNumber) {
+                1 -> "POSITION"
+                2 -> "LEAGUE"
+                3 -> "DIVISION"
+                4 -> "TEAM"
+                else -> null
             }
+        if (scheduledType != null && scheduledType !in confirmedTypes) {
+            hints +=
+                when (scheduledType) {
+                    "POSITION" -> hint("POSITION", "Position", formatRandomPosition(game), confirmed = false)
+                    "LEAGUE" -> hint("LEAGUE", "League", game.league, confirmed = false)
+                    "DIVISION" -> hint("DIVISION", "Division", game.division, confirmed = false)
+                    "TEAM" -> hint("TEAM", "Team", game.teamName, confirmed = false)
+                    else -> return hints
+                }
         }
         return hints
     }

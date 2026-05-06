@@ -16,5 +16,5 @@ data class RandomGame(
     val division: String,
     val savantUrl: String,
     val screenshot: ByteArray,
-    val createdAt: Instant = Instant.now()
+    val createdAt: Instant = Instant.now(),
 )

@@ -10,11 +10,21 @@ import java.time.LocalDate
 
 @Repository
 interface AnalyticsRepository : JpaRepository<Analytics, Long> {
-    fun findByEventDateAndEventType(eventDate: LocalDate, eventType: String): Analytics?
-    fun findByEventDateBetween(start: LocalDate, end: LocalDate): List<Analytics>
+    fun findByEventDateAndEventType(
+        eventDate: LocalDate,
+        eventType: String,
+    ): Analytics?
+
+    fun findByEventDateBetween(
+        start: LocalDate,
+        end: LocalDate,
+    ): List<Analytics>
 
     @Modifying
     @Transactional
     @Query("UPDATE Analytics a SET a.count = a.count + 1 WHERE a.eventDate = :date AND a.eventType = :type")
-    fun increment(date: LocalDate, type: String): Int
+    fun increment(
+        date: LocalDate,
+        type: String,
+    ): Int
 }

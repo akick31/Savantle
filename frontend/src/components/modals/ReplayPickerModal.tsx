@@ -150,7 +150,7 @@ export default function ReplayPickerModal({ open, onClose, onSelect }: ReplayPic
             </div>
 
             <p className="text-xs text-sv-muted text-center">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-sv-accent/15 border border-sv-accent/40 mr-1 align-middle" />
+              <span className="inline-block w-5 h-4 rounded bg-sv-accent mr-1 align-middle opacity-70" />
               = game available
             </p>
           </>

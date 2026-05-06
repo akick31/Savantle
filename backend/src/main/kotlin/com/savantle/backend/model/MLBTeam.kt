@@ -5,5 +5,5 @@ data class MLBTeam(
     val name: String,
     val abbreviation: String,
     val league: String,
-    val division: String
+    val division: String,
 )

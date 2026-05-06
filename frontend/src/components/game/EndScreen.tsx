@@ -17,9 +17,10 @@ interface EndScreenProps {
   onRandom?: () => void;
   onPlayAnother?: () => void;
   onPlayAnotherLabel?: string;
+  onOpenPicker?: () => void;
 }
 
-export default function EndScreen({ status, playerInfo, guessCount, date, hints, currentStreak, guesses, players, isDailyMode = true, onReplay, onRandom, onPlayAnother, onPlayAnotherLabel }: EndScreenProps) {
+export default function EndScreen({ status, playerInfo, guessCount, date, hints, currentStreak, guesses, players, isDailyMode = true, onReplay, onRandom, onPlayAnother, onPlayAnotherLabel, onOpenPicker }: EndScreenProps) {
   const [copied, setCopied] = useState(false);
   const won = status === 'won';
 
@@ -145,14 +146,16 @@ export default function EndScreen({ status, playerInfo, guessCount, date, hints,
         </button>
       )}
 
-      {!isDailyMode && onPlayAnother && (
+      {!isDailyMode && (onPlayAnother || onOpenPicker) && (
         <button
-          onClick={onPlayAnother}
+          onClick={onOpenPicker ?? onPlayAnother}
           className="w-full py-2.5 border border-sv-border text-sv-muted rounded-lg text-xs font-semibold hover:text-sv-text hover:border-sv-accent transition-colors flex items-center justify-center gap-1.5"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-            <path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
           {onPlayAnotherLabel ?? 'Play Again'}
         </button>

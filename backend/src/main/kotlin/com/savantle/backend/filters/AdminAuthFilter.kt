@@ -10,16 +10,14 @@ import java.security.MessageDigest
 
 @Component
 class AdminAuthFilter(
-    @Value("\${savantle.admin.api-key}") private val apiKey: String
+    @Value("\${savantle.admin.api-key}") private val apiKey: String,
 ) : OncePerRequestFilter() {
-
-    override fun shouldNotFilter(request: HttpServletRequest) =
-        !request.requestURI.contains("/admin/")
+    override fun shouldNotFilter(request: HttpServletRequest) = !request.requestURI.contains("/admin/")
 
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
-        filterChain: FilterChain
+        filterChain: FilterChain,
     ) {
         val provided = request.getHeader("X-Admin-Key")
         if (provided.isNullOrBlank() || !constantTimeEquals(provided, apiKey)) {
@@ -31,6 +29,8 @@ class AdminAuthFilter(
         filterChain.doFilter(request, response)
     }
 
-    private fun constantTimeEquals(a: String, b: String): Boolean =
-        MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
+    private fun constantTimeEquals(
+        a: String,
+        b: String,
+    ): Boolean = MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
 }

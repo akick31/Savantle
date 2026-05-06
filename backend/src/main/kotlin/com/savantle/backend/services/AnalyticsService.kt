@@ -10,15 +10,15 @@ import java.time.LocalDate
 
 @Service
 class AnalyticsService(private val repository: AnalyticsRepository) {
-
     private val log = LoggerFactory.getLogger(AnalyticsService::class.java)
 
     companion object {
-        val ALLOWED_EVENTS = setOf(
-            "UNIQUE_VISITORS", "GAME_WON", "GAME_LOST",
-            "REPLAY_PLAYED", "RANDOM_PLAYED",
-            "GUESS_1", "GUESS_2", "GUESS_3", "GUESS_4", "GUESS_5"
-        )
+        val ALLOWED_EVENTS =
+            setOf(
+                "UNIQUE_VISITORS", "GAME_WON", "GAME_LOST",
+                "REPLAY_PLAYED", "RANDOM_PLAYED",
+                "GUESS_1", "GUESS_2", "GUESS_3", "GUESS_4", "GUESS_5",
+            )
     }
 
     @Transactional
@@ -38,8 +38,9 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
 
     fun recordFromRequest(body: Map<String, String>): ResponseEntity<Any> {
         return try {
-            val eventType = body["eventType"]
-                ?: return ResponseEntity.badRequest().body(mapOf("error" to "eventType required"))
+            val eventType =
+                body["eventType"]
+                    ?: return ResponseEntity.badRequest().body(mapOf("error" to "eventType required"))
             record(eventType)
             ResponseEntity.ok(mapOf("ok" to true))
         } catch (e: IllegalArgumentException) {
@@ -49,7 +50,10 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
         }
     }
 
-    fun getSummary(start: LocalDate, end: LocalDate): List<Map<String, Any>> {
+    fun getSummary(
+        start: LocalDate,
+        end: LocalDate,
+    ): List<Map<String, Any>> {
         return repository.findByEventDateBetween(start, end)
             .sortedWith(compareBy({ it.eventDate }, { it.eventType }))
             .map { mapOf("date" to it.eventDate.toString(), "eventType" to it.eventType, "count" to it.count) }

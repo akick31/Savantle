@@ -10,8 +10,13 @@ import java.time.LocalDate
 @Repository
 interface DailyPlayerRepository : JpaRepository<DailyPlayer, Long> {
     fun findByGameDate(gameDate: LocalDate): DailyPlayer?
+
     fun existsByGameDate(gameDate: LocalDate): Boolean
-    fun findByGameDateBetween(start: LocalDate, end: LocalDate): List<DailyPlayer>
+
+    fun findByGameDateBetween(
+        start: LocalDate,
+        end: LocalDate,
+    ): List<DailyPlayer>
 
     @Modifying
     @Query("DELETE FROM DailyPlayer d WHERE d.gameDate = :gameDate")

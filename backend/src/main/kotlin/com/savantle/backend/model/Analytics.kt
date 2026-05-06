@@ -12,19 +12,16 @@ import java.time.LocalDate
 @Entity
 @Table(
     name = "analytics",
-    uniqueConstraints = [UniqueConstraint(columnNames = ["event_date", "event_type"])]
+    uniqueConstraints = [UniqueConstraint(columnNames = ["event_date", "event_type"])],
 )
 class Analytics(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
-
     @Column(name = "event_date", nullable = false)
     var eventDate: LocalDate,
-
     @Column(name = "event_type", nullable = false, length = 50)
     var eventType: String,
-
     @Column(nullable = false)
-    var count: Long = 0
+    var count: Long = 0,
 )

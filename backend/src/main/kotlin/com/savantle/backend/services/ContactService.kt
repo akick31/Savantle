@@ -11,9 +11,8 @@ import org.springframework.stereotype.Service
 class ContactService(
     private val mailSender: JavaMailSender,
     @Value("\${savantle.contact.to-email}") private val toEmail: String,
-    @Value("\${spring.mail.username}") private val fromEmail: String
+    @Value("\${spring.mail.username}") private val fromEmail: String,
 ) {
-
     private val log = LoggerFactory.getLogger(ContactService::class.java)
 
     companion object {
@@ -48,11 +47,12 @@ class ContactService(
         mail.setFrom(fromEmail)
         mail.replyTo = email
         mail.subject = "[Savantle] $subject"
-        mail.text = """
-From: $name <$email>
+        mail.text =
+            """
+            From: $name <$email>
 
-$message
-        """.trimIndent()
+            $messagemessage
+            """.trimIndent()
 
         mailSender.send(mail)
         log.info("Contact email sent from $email — subject: $subject")

@@ -1,27 +1,20 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchRandomDate } from '../services/api';
+import { liveScreenshotUrl, recordAnalytics } from '../services/api';
 import { useGameState } from '../hooks/useGameState';
 import GamePlay from '../components/game/GamePlay';
 import EndScreen from '../components/game/EndScreen';
 import LoadingScreen from '../components/layout/LoadingScreen';
 import PercentileDisplay from '../components/game/PercentileDisplay';
-import { liveScreenshotUrl, recordAnalytics } from '../services/api';
+import ReplayPickerModal from '../components/modals/ReplayPickerModal';
 
 export default function ReplayPage() {
   const { date } = useParams<{ date: string }>();
   const navigate = useNavigate();
   const replayState = useGameState({ overrideDate: date, persist: false });
   const recordedRef = useRef(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  const handlePlayAnotherDate = useCallback(async () => {
-    try {
-      const randomDate = await fetchRandomDate();
-      navigate(`/replay/${randomDate}`);
-    } catch {
-      navigate('/replay');
-    }
-  }, [navigate]);
 
   useEffect(() => {
     const s = replayState.status;
@@ -42,6 +35,11 @@ export default function ReplayPage() {
 
   return (
     <div className="w-full max-w-[480px] flex-1 space-y-4">
+      <ReplayPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={d => { setPickerOpen(false); navigate(`/replay/${d}`); }}
+      />
       <div className="space-y-1">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sv-border text-xs text-sv-muted">
           Replay · {date}
@@ -75,8 +73,8 @@ export default function ReplayPage() {
             hints={replayState.hints}
             currentStreak={0}
             isDailyMode={false}
-            onPlayAnother={handlePlayAnotherDate}
-            onPlayAnotherLabel="Play Another Previous Date"
+            onOpenPicker={() => setPickerOpen(true)}
+            onPlayAnotherLabel="Play Another Previous Game"
           />
         </>
       )}

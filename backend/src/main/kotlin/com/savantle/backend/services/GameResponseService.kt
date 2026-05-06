@@ -9,7 +9,6 @@ private val EARLIEST_DATE: LocalDate = LocalDate.of(2025, 1, 1)
 
 @Service
 class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
-
     fun getDailyPlayer(date: String?): ResponseEntity<Any> {
         return try {
             val targetDate = if (date != null) parseAndValidateDate(date) else LocalDate.now()
@@ -26,8 +25,9 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
     fun getScreenshot(date: String): ResponseEntity<ByteArray> {
         return try {
             val target = parseAndValidateDate(date)
-            val bytes = dailyPlayerService.getScreenshot(target)
-                ?: return ResponseEntity.notFound().build()
+            val bytes =
+                dailyPlayerService.getScreenshot(target)
+                    ?: return ResponseEntity.notFound().build()
             ResponseEntity.ok(bytes)
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().build()
@@ -39,8 +39,9 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
     fun getLiveScreenshot(date: String): ResponseEntity<ByteArray> {
         return try {
             val target = parseAndValidateDate(date)
-            val bytes = dailyPlayerService.getLiveScreenshot(target)
-                ?: return ResponseEntity.notFound().build()
+            val bytes =
+                dailyPlayerService.getLiveScreenshot(target)
+                    ?: return ResponseEntity.notFound().build()
             ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(bytes)
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().build()
@@ -57,7 +58,11 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
         }
     }
 
-    fun validateGuess(playerName: String, date: String?, guessNumber: Int): ResponseEntity<Any> {
+    fun validateGuess(
+        playerName: String,
+        date: String?,
+        guessNumber: Int,
+    ): ResponseEntity<Any> {
         if (playerName.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Player name is required"))
         if (guessNumber < 1 || guessNumber > 5) return ResponseEntity.badRequest().body(mapOf("error" to "Invalid guess number"))
         return try {
@@ -91,7 +96,11 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
         }
     }
 
-    fun validateRandomGuess(gameId: String, playerName: String, guessNumber: Int): ResponseEntity<Any> {
+    fun validateRandomGuess(
+        gameId: String,
+        playerName: String,
+        guessNumber: Int,
+    ): ResponseEntity<Any> {
         if (playerName.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Player name required"))
         if (guessNumber < 1 || guessNumber > 5) return ResponseEntity.badRequest().body(mapOf("error" to "Invalid guess number"))
         return try {
@@ -121,7 +130,10 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
         }
     }
 
-    fun curatePlayerForDate(date: String, playerName: String): ResponseEntity<Any> {
+    fun curatePlayerForDate(
+        date: String,
+        playerName: String,
+    ): ResponseEntity<Any> {
         if (date.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Date is required"))
         if (playerName.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Player name is required"))
         return try {
@@ -137,8 +149,9 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
     }
 
     private fun parseAndValidateDate(date: String): LocalDate {
-        val parsed = runCatching { LocalDate.parse(date) }
-            .getOrElse { throw IllegalArgumentException("Invalid date format: $date") }
+        val parsed =
+            runCatching { LocalDate.parse(date) }
+                .getOrElse { throw IllegalArgumentException("Invalid date format: $date") }
         require(parsed >= EARLIEST_DATE) { "Date is before the earliest available game" }
         require(parsed <= LocalDate.now().plusDays(8)) { "Date is in the future" }
         return parsed

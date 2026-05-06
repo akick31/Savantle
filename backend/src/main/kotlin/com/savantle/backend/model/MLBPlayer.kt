@@ -5,5 +5,5 @@ data class MLBPlayer(
     val fullName: String,
     val position: String,
     val throwingHand: String?,
-    val team: MLBTeam
+    val team: MLBTeam,
 )

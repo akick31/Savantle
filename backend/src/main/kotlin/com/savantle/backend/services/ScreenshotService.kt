@@ -18,26 +18,28 @@ import java.util.concurrent.TimeUnit
 
 @Service
 class ScreenshotService {
-
     companion object {
-        private val PERCENTILE_SELECTORS = listOf(
-            "#percentileRankings",
-            "div.percentile-rankings",
-            "[id*='percentile']",
-            ".stat-percentile-wrapper",
-            "#player-percentile"
-        )
+        private val PERCENTILE_SELECTORS =
+            listOf(
+                "#percentileRankings",
+                "div.percentile-rankings",
+                "[id*='percentile']",
+                ".stat-percentile-wrapper",
+                "#player-percentile",
+            )
         private const val PERCENTILE_HEADING_SELECTOR =
             "text=/\\d{4}\\s+MLB\\s+Percentile\\s+Rankings|MLB\\s+Percentile\\s+Rankings/i"
 
         private val BLOCKED_RESOURCE_TYPES = setOf("media", "websocket")
+
         // Block third-party domains (ads, analytics, tracking)
-        private val BLOCKED_URL_PATTERNS = listOf(
-            "google-analytics", "googletagmanager", "doubleclick",
-            "facebook", "twitter", "amazon-adsystem", "scorecardresearch",
-            "omtrdc", "demdex", "krxd", "chartbeat", "quantserve",
-            "cdn.cookielaw", "onetrust", "bat.bing"
-        )
+        private val BLOCKED_URL_PATTERNS =
+            listOf(
+                "google-analytics", "googletagmanager", "doubleclick",
+                "facebook", "twitter", "amazon-adsystem", "scorecardresearch",
+                "omtrdc", "demdex", "krxd", "chartbeat", "quantserve",
+                "cdn.cookielaw", "onetrust", "bat.bing",
+            )
 
         private const val CONTEXT_POOL_SIZE = 3
     }
@@ -54,20 +56,23 @@ class ScreenshotService {
     fun init() {
         try {
             playwright = Playwright.create()
-            browser = playwright!!.chromium().launch(
-                BrowserType.LaunchOptions()
-                    .setHeadless(true)
-                    .setArgs(listOf(
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-extensions",
-                        "--disable-gpu",
-                        "--disable-background-networking",
-                        "--disable-default-apps",
-                        "--no-first-run",
-                        "--mute-audio",
-                    ))
-            )
+            browser =
+                playwright!!.chromium().launch(
+                    BrowserType.LaunchOptions()
+                        .setHeadless(true)
+                        .setArgs(
+                            listOf(
+                                "--no-sandbox",
+                                "--disable-dev-shm-usage",
+                                "--disable-extensions",
+                                "--disable-gpu",
+                                "--disable-background-networking",
+                                "--disable-default-apps",
+                                "--no-first-run",
+                                "--mute-audio",
+                            ),
+                        ),
+                )
             // Pre-warm the context pool
             repeat(CONTEXT_POOL_SIZE) { contextPool.offer(createContext()) }
             log.info("Playwright Chromium initialized with pool of $CONTEXT_POOL_SIZE contexts")
@@ -84,19 +89,23 @@ class ScreenshotService {
     }
 
     private fun createContext(): BrowserContext {
-        val ctx = browser!!.newContext(
-            Browser.NewContextOptions()
-                .setViewportSize(1400, 2000)
-                .setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-                .setJavaScriptEnabled(true)
-        )
+        val ctx =
+            browser!!.newContext(
+                Browser.NewContextOptions()
+                    .setViewportSize(1400, 2000)
+                    .setUserAgent(
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    )
+                    .setJavaScriptEnabled(true),
+            )
         // Block unnecessary resources to cut page load time
         ctx.route("**/*") { route ->
             val req = route.request()
             val type = req.resourceType()
             val url = req.url()
             if (type in BLOCKED_RESOURCE_TYPES ||
-                BLOCKED_URL_PATTERNS.any { url.contains(it, ignoreCase = true) }) {
+                BLOCKED_URL_PATTERNS.any { url.contains(it, ignoreCase = true) }
+            ) {
                 route.abort()
             } else {
                 route.resume()
@@ -117,7 +126,11 @@ class ScreenshotService {
         }
     }
 
-    fun capturePercentiles(mlbamId: Int, fullName: String, isPitcher: Boolean): ScreenshotResult? {
+    fun capturePercentiles(
+        mlbamId: Int,
+        fullName: String,
+        isPitcher: Boolean,
+    ): ScreenshotResult? {
         if (browser == null) {
             log.warn("Browser not initialized")
             return null
@@ -151,7 +164,7 @@ class ScreenshotService {
                 page.waitForFunction(
                     "(el) => el.querySelector('canvas, svg, .bar, [class*=\"bar\"]') !== null",
                     element,
-                    Page.WaitForFunctionOptions().setTimeout(5_000.0)
+                    Page.WaitForFunctionOptions().setTimeout(5_000.0),
                 )
             }
             // Brief settle time — much shorter than before
@@ -182,17 +195,21 @@ class ScreenshotService {
             .replace(Regex("\\s+"), "-")
     }
 
-    private fun findPercentileContainerByHeading(page: Page, fullName: String, mlbamId: Int) =
-        runCatching {
-            page.waitForSelector(
-                PERCENTILE_HEADING_SELECTOR,
-                Page.WaitForSelectorOptions()
-                    .setState(WaitForSelectorState.ATTACHED)
-                    .setTimeout(20_000.0)
-            )
+    private fun findPercentileContainerByHeading(
+        page: Page,
+        fullName: String,
+        mlbamId: Int,
+    ) = runCatching {
+        page.waitForSelector(
+            PERCENTILE_HEADING_SELECTOR,
+            Page.WaitForSelectorOptions()
+                .setState(WaitForSelectorState.ATTACHED)
+                .setTimeout(20_000.0),
+        )
 
-            val heading = page.querySelector(PERCENTILE_HEADING_SELECTOR) ?: return@runCatching null
-            val containerHandle = heading.evaluateHandle(
+        val heading = page.querySelector(PERCENTILE_HEADING_SELECTOR) ?: return@runCatching null
+        val containerHandle =
+            heading.evaluateHandle(
                 """
                 (el) => {
                   const specific = el.closest('#percentileRankings, .percentile-rankings, .stat-percentile-wrapper, #player-percentile');
@@ -201,30 +218,33 @@ class ScreenshotService {
                   if (generic) return generic;
                   return el.parentElement;
                 }
-                """.trimIndent()
+                """.trimIndent(),
             )
-            val container = containerHandle.asElement()
-            if (container == null) {
-                log.warn("Found percentile heading but no container for $fullName ($mlbamId)")
-            }
-            container
-        }.getOrElse {
-            log.warn("Heading-based percentile lookup failed for $fullName ($mlbamId): ${it.message}")
-            null
+        val container = containerHandle.asElement()
+        if (container == null) {
+            log.warn("Found percentile heading but no container for $fullName ($mlbamId)")
         }
+        container
+    }.getOrElse {
+        log.warn("Heading-based percentile lookup failed for $fullName ($mlbamId): ${it.message}")
+        null
+    }
 
-    private fun findPercentileContainerByFallbackSelectors(page: Page, fullName: String, mlbamId: Int) =
-        PERCENTILE_SELECTORS.firstNotNullOfOrNull { sel ->
-            runCatching {
-                page.waitForSelector(
-                    sel,
-                    Page.WaitForSelectorOptions()
-                        .setState(WaitForSelectorState.ATTACHED)
-                        .setTimeout(5_000.0)
-                )
-                page.querySelector(sel)
-            }.getOrElse { null }
-        }.also {
-            if (it == null) log.warn("Fallback percentile selectors failed for $fullName ($mlbamId)")
-        }
+    private fun findPercentileContainerByFallbackSelectors(
+        page: Page,
+        fullName: String,
+        mlbamId: Int,
+    ) = PERCENTILE_SELECTORS.firstNotNullOfOrNull { sel ->
+        runCatching {
+            page.waitForSelector(
+                sel,
+                Page.WaitForSelectorOptions()
+                    .setState(WaitForSelectorState.ATTACHED)
+                    .setTimeout(5_000.0),
+            )
+            page.querySelector(sel)
+        }.getOrElse { null }
+    }.also {
+        if (it == null) log.warn("Fallback percentile selectors failed for $fullName ($mlbamId)")
+    }
 }
