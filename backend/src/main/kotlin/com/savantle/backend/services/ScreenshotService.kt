@@ -5,8 +5,8 @@ import com.microsoft.playwright.BrowserContext
 import com.microsoft.playwright.BrowserType
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
-import com.microsoft.playwright.options.LoadState
 import com.microsoft.playwright.options.WaitForSelectorState
+import com.microsoft.playwright.options.WaitUntilState
 import com.savantle.backend.model.ScreenshotResult
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
@@ -132,7 +132,7 @@ class ScreenshotService {
                     page.navigate(
                         url,
                         Page.NavigateOptions()
-                            .setWaitUntil(LoadState.DOMCONTENTLOADED)
+                            .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
                             .setTimeout(45_000.0),
                     )
 
