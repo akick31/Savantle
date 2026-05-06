@@ -9,6 +9,8 @@ pipeline {
         DB_USERNAME = credentials('DB_USERNAME')
         DB_PASSWORD = credentials('DB_PASSWORD')
         SAVANTLE_ADMIN_KEY = credentials('SAVANTLE_ADMIN_KEY')
+        SAVANTLE_MAIL_USERNAME = credentials('SAVANTLE_MAIL_USERNAME')
+        SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
     }
@@ -60,6 +62,13 @@ pipeline {
                             cors.allowed.origins=https://savantle.com
                             management.endpoints.web.exposure.include=*
                             savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
+                            spring.mail.host=smtp.gmail.com
+                            spring.mail.port=587
+                            spring.mail.username=${env.SAVANTLE_MAIL_USERNAME}
+                            spring.mail.password=${env.SAVANTLE_MAIL_PASSWORD}
+                            spring.mail.properties.mail.smtp.auth=true
+                            spring.mail.properties.mail.smtp.starttls.enable=true
+                            savantle.contact.to-email=${env.SAVANTLE_MAIL_USERNAME}
                             savantle.curator.days-ahead=7
                             savantle.curator.cron=0 0 4 * * *
                             savantle.qualification.batter-min-pa=75

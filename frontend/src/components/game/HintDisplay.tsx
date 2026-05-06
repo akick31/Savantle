@@ -1,5 +1,5 @@
-import { PlayerSearchItem } from '../types';
-import { normalizeForSearch } from '../utils/normalize';
+import { PlayerSearchItem } from '../../types';
+import { normalizeForSearch } from '../../utils/normalize';
 
 interface HintDisplayProps {
   guesses: string[];

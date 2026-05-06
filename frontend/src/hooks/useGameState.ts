@@ -2,37 +2,34 @@ import { useState, useCallback, useEffect } from 'react';
 import { DailyData, GameStatus, HintData, PlayerInfo, PlayerSearchItem, StoredGame } from '../types';
 import { fetchDailyPlayer, fetchPlayerList, submitGuess } from '../services/api';
 import { getLocalDate } from '../utils/share';
+import { mergeHints } from '../utils/hints';
 
 const GAME_KEY = 'savantle-game';
 
-function getTodayKey(): string {
-  return `${GAME_KEY}-${getLocalDate()}`;
+function getStorageKey(date: string): string {
+  return `${GAME_KEY}-${date}`;
 }
 
-function loadStoredGame(): StoredGame | null {
+function loadStoredGame(date: string): StoredGame | null {
   try {
-    const raw = localStorage.getItem(getTodayKey());
+    const raw = localStorage.getItem(getStorageKey(date));
     if (raw) return JSON.parse(raw);
   } catch { /* ignore */ }
   return null;
 }
 
-function saveGame(game: StoredGame): void {
-  localStorage.setItem(getTodayKey(), JSON.stringify(game));
+function saveGame(date: string, game: StoredGame): void {
+  localStorage.setItem(getStorageKey(date), JSON.stringify(game));
 }
 
-function mergeHints(existing: HintData[], incoming: HintData[]): HintData[] {
-  const map = new Map(existing.map(h => [h.type, h]));
-  for (const h of incoming) {
-    const current = map.get(h.type);
-    if (!current || h.confirmed) {
-      map.set(h.type, h);
-    }
-  }
-  return Array.from(map.values());
+interface UseGameStateOptions {
+  overrideDate?: string;
+  persist?: boolean;
 }
 
-export function useGameState() {
+export function useGameState(options: UseGameStateOptions = {}) {
+  const { overrideDate, persist = true } = options;
+
   const [dailyData, setDailyData] = useState<DailyData | null>(null);
   const [players, setPlayers] = useState<PlayerSearchItem[]>([]);
   const [status, setStatus] = useState<GameStatus>('loading');
@@ -44,32 +41,49 @@ export function useGameState() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function init() {
+      setStatus('loading');
+      setGuesses([]);
+      setHints([]);
+      setLatestHints([]);
+      setPlayerInfo(null);
+      setError(null);
+
       try {
-        const localDate = getLocalDate();
+        const dateParam = overrideDate ?? getLocalDate();
         const [data, playerList] = await Promise.all([
-          fetchDailyPlayer(localDate),
+          fetchDailyPlayer(dateParam),
           fetchPlayerList(),
         ]);
+        if (cancelled) return;
+
         setDailyData(data);
         setPlayers(playerList);
 
-        const stored = loadStoredGame();
-        if (stored && stored.date === data.date) {
-          setGuesses(stored.guesses);
-          setHints(stored.hints);
-          setPlayerInfo(stored.playerInfo);
-          setStatus(stored.status);
-        } else {
-          setStatus('playing');
+        if (persist) {
+          const stored = loadStoredGame(data.date);
+          if (stored && stored.date === data.date) {
+            setGuesses(stored.guesses);
+            setHints(stored.hints);
+            setPlayerInfo(stored.playerInfo);
+            setStatus(stored.status);
+            return;
+          }
         }
+        setStatus('playing');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load game data');
-        setStatus('loading');
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load game data');
+          setStatus('loading');
+        }
       }
     }
+
     init();
-  }, []);
+    return () => { cancelled = true; };
+  }, [overrideDate, persist]);
 
   const makeGuess = useCallback(async (playerName: string): Promise<boolean> => {
     if (isSubmitting || !dailyData) return false;
@@ -108,14 +122,16 @@ export function useGameState() {
       setStatus(newStatus);
       setPlayerInfo(newPlayerInfo);
 
-      const game: StoredGame = {
-        date: dailyData.date,
-        status: newStatus,
-        guesses: newGuesses,
-        hints: newHints,
-        playerInfo: newPlayerInfo,
-      };
-      saveGame(game);
+      if (persist) {
+        const game: StoredGame = {
+          date: dailyData.date,
+          status: newStatus,
+          guesses: newGuesses,
+          hints: newHints,
+          playerInfo: newPlayerInfo,
+        };
+        saveGame(dailyData.date, game);
+      }
 
       return result.correct;
     } catch (e) {
@@ -124,7 +140,7 @@ export function useGameState() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, dailyData, guesses, hints, playerInfo]);
+  }, [isSubmitting, dailyData, guesses, hints, playerInfo, persist]);
 
   return {
     dailyData,

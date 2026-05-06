@@ -39,6 +39,11 @@ export interface PlayerSearchItem {
   mlbamId: string;
 }
 
+export interface RandomGameData {
+  gameId: string;
+  playerType: PlayerType;
+}
+
 export interface StoredGame {
   date: string;
   status: GameStatus;

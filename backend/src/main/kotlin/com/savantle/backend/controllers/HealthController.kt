@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class HealthController(private val dailyPlayerService: DailyPlayerService) {
-
     @GetMapping("/health")
     fun health() = mapOf(
         "status" to "UP",

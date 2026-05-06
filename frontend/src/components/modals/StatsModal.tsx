@@ -1,5 +1,5 @@
 import Modal from './Modal';
-import { PlayerStats } from '../types';
+import { PlayerStats } from '../../types';
 
 interface StatsModalProps {
   open: boolean;

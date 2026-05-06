@@ -3,9 +3,10 @@ import Modal from './Modal';
 interface HowToPlayProps {
   open: boolean;
   onClose: () => void;
+  onContact: () => void;
 }
 
-export default function HowToPlay({ open, onClose }: HowToPlayProps) {
+export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) {
   return (
     <Modal open={open} onClose={onClose} title="How to Play">
       <div className="space-y-3 text-sm text-sv-muted max-h-[70vh] overflow-y-auto">
@@ -63,6 +64,18 @@ export default function HowToPlay({ open, onClose }: HowToPlayProps) {
               Baseball Savant
             </a>
             . Savantle is an unofficial fan project by Andrew Kicklighter.
+          </p>
+        </div>
+
+        <div className="border-t border-sv-border pt-3 text-xs text-sv-muted text-center">
+          <p>
+            Have a question, suggestion, or bug to report?{' '}
+            <button
+              onClick={() => { onClose(); onContact(); }}
+              className="text-sv-accent hover:underline"
+            >
+              Contact me using this form.
+            </button>
           </p>
         </div>
       </div>

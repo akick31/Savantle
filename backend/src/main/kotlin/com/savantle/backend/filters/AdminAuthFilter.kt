@@ -6,15 +6,15 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import java.security.MessageDigest
 
 @Component
 class AdminAuthFilter(
     @Value("\${savantle.admin.api-key}") private val apiKey: String
 ) : OncePerRequestFilter() {
 
-    override fun shouldNotFilter(request: HttpServletRequest): Boolean {
-        return !request.requestURI.contains("/admin/")
-    }
+    override fun shouldNotFilter(request: HttpServletRequest) =
+        !request.requestURI.contains("/admin/")
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -22,7 +22,7 @@ class AdminAuthFilter(
         filterChain: FilterChain
     ) {
         val provided = request.getHeader("X-Admin-Key")
-        if (provided.isNullOrBlank() || provided != apiKey) {
+        if (provided.isNullOrBlank() || !constantTimeEquals(provided, apiKey)) {
             response.status = HttpServletResponse.SC_UNAUTHORIZED
             response.contentType = "application/json"
             response.writer.write("{\"error\":\"Unauthorized\"}")
@@ -30,4 +30,7 @@ class AdminAuthFilter(
         }
         filterChain.doFilter(request, response)
     }
+
+    private fun constantTimeEquals(a: String, b: String): Boolean =
+        MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
 }

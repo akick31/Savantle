@@ -1,10 +1,11 @@
-import { DailyData, HintData, PlayerSearchItem } from '../types';
+import { DailyData, HintData, PlayerSearchItem } from '../../types';
 import PercentileDisplay from './PercentileDisplay';
 import HintDisplay from './HintDisplay';
 import PlayerSearch from './PlayerSearch';
 
 interface GamePlayProps {
   dailyData: DailyData;
+  screenshotUrl: string;
   players: PlayerSearchItem[];
   guesses: string[];
   hints: HintData[];
@@ -46,7 +47,7 @@ function HintRow({ hint }: { hint: HintData }) {
   );
 }
 
-export default function GamePlay({ dailyData, players, guesses, hints, isSubmitting, onGuess }: GamePlayProps) {
+export default function GamePlay({ dailyData, screenshotUrl, players, guesses, hints, isSubmitting, onGuess }: GamePlayProps) {
   const guessesLeft = MAX_GUESSES - guesses.length;
   const guessNumber = guesses.length + 1;
 
@@ -57,7 +58,7 @@ export default function GamePlay({ dailyData, players, guesses, hints, isSubmitt
 
   return (
     <div className="space-y-4">
-      <PercentileDisplay date={dailyData.date} playerType={dailyData.playerType} />
+      <PercentileDisplay screenshotUrl={screenshotUrl} playerType={dailyData.playerType} />
 
       {guesses.length > 0 && <HintDisplay guesses={guesses} players={players} />}
 

@@ -2,6 +2,7 @@ package com.savantle.backend.services
 
 import com.savantle.backend.model.DailyPlayer
 import com.savantle.backend.model.MLBPlayer
+import com.savantle.backend.model.RandomGame
 import com.savantle.backend.repositories.DailyPlayerRepository
 import jakarta.annotation.PostConstruct
 import jakarta.persistence.EntityManager
@@ -11,7 +12,10 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.text.Normalizer
+import java.time.Instant
 import java.time.LocalDate
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 @Service
@@ -27,8 +31,16 @@ class DailyPlayerService(
 ) {
 
     companion object {
-        private val PITCHER_POSITIONS = setOf("SP", "RP", "P")
+        val PITCHER_POSITIONS = setOf("SP", "RP", "P")
+        private const val RANDOM_GAME_TTL_HOURS = 6L
+        private const val LIVE_SCREENSHOT_TTL_HOURS = 4L
     }
+
+    private val randomGames = ConcurrentHashMap<String, RandomGame>()
+
+    // Cache for live (replay) screenshots: date string → (bytes, capturedAt)
+    private data class CachedScreenshot(val bytes: ByteArray, val capturedAt: Instant)
+    private val liveScreenshotCache = ConcurrentHashMap<String, CachedScreenshot>()
 
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)
 
@@ -249,9 +261,9 @@ class DailyPlayerService(
             }
         }
 
-        // Upcoming/today's curated players — always include, override roster if name matches
-        val upcomingPlayers = repository.findByGameDateBetween(today, today.plusDays(daysAhead.toLong()))
-        for (player in upcomingPlayers) {
+        // All curated players (past, today, upcoming) — always include, override roster if name matches
+        val allCurated = repository.findByGameDateBetween(LocalDate.of(2000, 1, 1), today.plusDays(daysAhead.toLong()))
+        for (player in allCurated) {
             val normalized = normalizeForSearch(player.fullName)
             val type = if (player.isPitcher) "PITCHER" else "BATTER"
             combined["$normalized|$type"] = mapOf(
@@ -377,6 +389,161 @@ class DailyPlayerService(
             "R" -> "RHP"
             else -> "P"
         }
+    }
+
+    // ── Live screenshot (replay mode) ─────────────────────────────────────────
+
+    fun getLiveScreenshot(date: LocalDate): ByteArray? {
+        val dateKey = date.toString()
+        val cached = liveScreenshotCache[dateKey]
+        if (cached != null && Instant.now().isBefore(cached.capturedAt.plusSeconds(LIVE_SCREENSHOT_TTL_HOURS * 3600))) {
+            log.info("Returning cached live screenshot for $dateKey")
+            return cached.bytes
+        }
+
+        val player = repository.findByGameDate(date) ?: return null
+        val result = screenshotService.capturePercentiles(player.mlbamId, player.fullName, player.isPitcher)
+            ?: return null
+        liveScreenshotCache[dateKey] = CachedScreenshot(result.pngBytes, Instant.now())
+        return result.pngBytes
+    }
+
+    // ── Random player game (in-memory, never persisted) ───────────────────────
+
+    fun createRandomGame(): Map<String, Any> {
+        pruneExpiredRandomGames()
+
+        val pool = if (!isEarlySeason(LocalDate.now()) && qualifiedIds.isNotEmpty()) {
+            val filtered = rosterCache.filter { it.mlbamId in qualifiedIds }
+            filtered.ifEmpty { rosterCache }
+        } else {
+            rosterCache
+        }
+        val players = pool.shuffled()
+        if (players.isEmpty()) throw IllegalStateException("Roster not loaded yet, try again shortly")
+
+        for (candidate in players) {
+            val isPitcher = candidate.position in PITCHER_POSITIONS
+            val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
+                ?: continue
+
+            val gameId = UUID.randomUUID().toString()
+            randomGames[gameId] = RandomGame(
+                gameId = gameId,
+                mlbamId = candidate.mlbamId,
+                fullName = candidate.fullName,
+                normalizedName = normalizeForSearch(candidate.fullName),
+                position = candidate.position,
+                throwingHand = candidate.throwingHand,
+                isPitcher = isPitcher,
+                teamName = candidate.team.name,
+                teamAbbr = candidate.team.abbreviation,
+                league = candidate.team.league,
+                division = candidate.team.division,
+                savantUrl = result.savantUrl,
+                screenshot = result.pngBytes
+            )
+            log.info("Random game created: ${candidate.fullName} ($gameId)")
+            return mapOf("gameId" to gameId, "playerType" to if (isPitcher) "PITCHER" else "BATTER")
+        }
+        throw IllegalStateException("Could not capture screenshot for any player, please try again")
+    }
+
+    fun getRandomGameScreenshot(gameId: String): ByteArray {
+        return randomGames[gameId]?.screenshot ?: throw IllegalArgumentException("Game not found or expired")
+    }
+
+    fun validateRandomGuess(gameId: String, playerName: String, guessNumber: Int): Map<String, Any> {
+        val game = randomGames[gameId] ?: throw IllegalArgumentException("Game not found or expired")
+        val correct = normalizeForSearch(playerName) == game.normalizedName
+
+        if (correct) {
+            return mapOf("correct" to true, "playerInfo" to buildRandomPlayerInfo(game))
+        }
+
+        val gameOver = guessNumber >= 5
+        val result = mutableMapOf<String, Any>("correct" to false, "gameOver" to gameOver)
+        if (gameOver) {
+            result["playerInfo"] = buildRandomPlayerInfo(game)
+        } else {
+            result["hints"] = buildRandomHints(game, guessNumber, playerName)
+        }
+        return result
+    }
+
+    private fun buildRandomPlayerInfo(game: RandomGame): Map<String, String> = mapOf(
+        "fullName"  to game.fullName,
+        "position"  to formatRandomPosition(game),
+        "teamName"  to game.teamName,
+        "teamAbbr"  to game.teamAbbr,
+        "league"    to game.league,
+        "division"  to game.division,
+        "mlbamId"   to game.mlbamId.toString(),
+        "savantUrl" to game.savantUrl
+    )
+
+    private fun formatRandomPosition(game: RandomGame): String {
+        if (!game.isPitcher) return game.position
+        return when (game.throwingHand?.uppercase()) {
+            "L" -> "LHP"; "R" -> "RHP"; else -> "P"
+        }
+    }
+
+    private fun buildRandomHints(game: RandomGame, guessNumber: Int, guessedPlayerName: String): List<Map<String, Any>> {
+        val hints = mutableListOf<Map<String, Any>>()
+        val confirmedTypes = mutableSetOf<String>()
+
+        val guessedPlayer = rosterCache.firstOrNull {
+            normalizeForSearch(it.fullName) == normalizeForSearch(guessedPlayerName)
+        }
+
+        if (guessedPlayer != null) {
+            when {
+                guessedPlayer.team.name == game.teamName -> {
+                    hints += hint("TEAM", "Team", game.teamName, confirmed = true)
+                    hints += hint("DIVISION", "Division", game.division, confirmed = true)
+                    hints += hint("LEAGUE", "League", game.league, confirmed = true)
+                    confirmedTypes += setOf("TEAM", "DIVISION", "LEAGUE")
+                }
+                guessedPlayer.team.division == game.division -> {
+                    hints += hint("DIVISION", "Division", game.division, confirmed = true)
+                    hints += hint("LEAGUE", "League", game.league, confirmed = true)
+                    confirmedTypes += setOf("DIVISION", "LEAGUE")
+                }
+            }
+        }
+
+        val scheduledType = when (guessNumber) {
+            1 -> "POSITION"; 2 -> "LEAGUE"; 3 -> "DIVISION"; 4 -> "TEAM"; else -> null
+        }
+        if (scheduledType != null && scheduledType !in confirmedTypes) {
+            hints += when (scheduledType) {
+                "POSITION" -> hint("POSITION", "Position", formatRandomPosition(game), confirmed = false)
+                "LEAGUE"   -> hint("LEAGUE", "League", game.league, confirmed = false)
+                "DIVISION" -> hint("DIVISION", "Division", game.division, confirmed = false)
+                "TEAM"     -> hint("TEAM", "Team", game.teamName, confirmed = false)
+                else -> return hints
+            }
+        }
+        return hints
+    }
+
+    private fun pruneExpiredRandomGames() {
+        val cutoff = Instant.now().minusSeconds(RANDOM_GAME_TTL_HOURS * 3600)
+        randomGames.entries.removeIf { it.value.createdAt.isBefore(cutoff) }
+    }
+
+    fun getAvailableDates(): List<String> {
+        val today = LocalDate.now()
+        return repository.findByGameDateBetween(LocalDate.of(2020, 1, 1), today.minusDays(1))
+            .map { it.gameDate.toString() }
+            .sorted()
+    }
+
+    fun getRandomPastDate(): String {
+        val dates = getAvailableDates()
+        require(dates.isNotEmpty()) { "No past games available" }
+        return dates.random()
     }
 
     fun isReady(): Boolean = repository.existsByGameDate(LocalDate.now())

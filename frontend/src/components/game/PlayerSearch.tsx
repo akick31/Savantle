@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { PlayerSearchItem } from '../types';
-import { normalizeForSearch } from '../utils/normalize';
+import { PlayerSearchItem } from '../../types';
+import { normalizeForSearch } from '../../utils/normalize';
 
 interface PlayerSearchProps {
   players: PlayerSearchItem[];
@@ -47,7 +47,6 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
     const trimmed = query.trim();
     if (!trimmed) return;
 
-    // Require a full name match from the player list
     const norm = normalizeForSearch(trimmed);
     const match = filteredPlayers.find(p => p.normalizedName === norm);
     if (!match) {
@@ -83,7 +82,6 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
     }
   };
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
