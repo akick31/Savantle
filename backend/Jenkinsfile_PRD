@@ -14,7 +14,7 @@ pipeline {
         SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
-        HEALTH_URL = 'http://localhost:163/actuator/health'
+        HEALTH_URL = 'http://localhost:164/actuator/health'
     }
 
     stages {
@@ -88,7 +88,7 @@ pipeline {
         stage('Start New Container') {
             steps {
                 sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
-                sh "docker run --network='host' -d --name ${CONTAINER_NAME_BLUE} ${IMAGE_NAME}:${DOCKERFILE}"
+                sh "docker run -d --name ${CONTAINER_NAME_BLUE} -p 164:163 ${IMAGE_NAME}:${DOCKERFILE}"
             }
         }
 
@@ -130,8 +130,9 @@ pipeline {
             steps {
                 sh "docker stop ${CONTAINER_NAME} || true"
                 sh "docker rm ${CONTAINER_NAME} || true"
-                sh "docker rename ${CONTAINER_NAME_BLUE} ${CONTAINER_NAME}"
-                sh "docker update --restart=always ${CONTAINER_NAME}"
+                sh "docker stop ${CONTAINER_NAME_BLUE} || true"
+                sh "docker rm ${CONTAINER_NAME_BLUE} || true"
+                sh "docker run --network='host' -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
             }
         }
 
