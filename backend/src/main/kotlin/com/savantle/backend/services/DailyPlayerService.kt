@@ -33,6 +33,7 @@ class DailyPlayerService(
         val PITCHER_POSITIONS = setOf("SP", "RP", "P")
         private const val RANDOM_GAME_TTL_HOURS = 6L
         private const val LIVE_SCREENSHOT_TTL_HOURS = 4L
+        private const val MAX_RANDOM_SCREENSHOT_ATTEMPTS = 25
     }
 
     private val randomGames = ConcurrentHashMap<String, RandomGame>()
@@ -464,7 +465,7 @@ class DailyPlayerService(
         val players = pool.shuffled()
         if (players.isEmpty()) throw IllegalStateException("Roster not loaded yet, try again shortly")
 
-        for (candidate in players) {
+        for (candidate in players.asSequence().take(MAX_RANDOM_SCREENSHOT_ATTEMPTS)) {
             val isPitcher = candidate.position in PITCHER_POSITIONS
             val result =
                 screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
@@ -490,6 +491,10 @@ class DailyPlayerService(
             log.info("Random game created: ${candidate.fullName} ($gameId)")
             return mapOf("gameId" to gameId, "playerType" to if (isPitcher) "PITCHER" else "BATTER")
         }
+        log.warn(
+            "Random game: no screenshot after $MAX_RANDOM_SCREENSHOT_ATTEMPTS tries " +
+                "(pool size ${players.size}); try again later",
+        )
         throw IllegalStateException("Could not capture screenshot for any player, please try again")
     }
 

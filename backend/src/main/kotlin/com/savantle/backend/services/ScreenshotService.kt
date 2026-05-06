@@ -13,8 +13,8 @@ import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.text.Normalizer
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 @Service
 class ScreenshotService {
@@ -40,8 +40,6 @@ class ScreenshotService {
                 "omtrdc", "demdex", "krxd", "chartbeat", "quantserve",
                 "cdn.cookielaw", "onetrust", "bat.bing",
             )
-
-        private const val CONTEXT_POOL_SIZE = 3
     }
 
     private val log = LoggerFactory.getLogger(ScreenshotService::class.java)
@@ -49,8 +47,7 @@ class ScreenshotService {
     private var playwright: Playwright? = null
     private var browser: Browser? = null
 
-    // Pool of reusable browser contexts — avoids cold-start overhead per capture
-    private val contextPool = ArrayBlockingQueue<BrowserContext>(CONTEXT_POOL_SIZE)
+    private val captureLock = ReentrantLock()
 
     @PostConstruct
     fun init() {
@@ -73,9 +70,7 @@ class ScreenshotService {
                             ),
                         ),
                 )
-            // Pre-warm the context pool
-            repeat(CONTEXT_POOL_SIZE) { contextPool.offer(createContext()) }
-            log.info("Playwright Chromium initialized with pool of $CONTEXT_POOL_SIZE contexts")
+            log.info("Playwright Chromium initialized (fresh context per capture, serialized)")
         } catch (e: Exception) {
             log.error("Failed to initialize Playwright", e)
         }
@@ -83,7 +78,6 @@ class ScreenshotService {
 
     @PreDestroy
     fun shutdown() {
-        contextPool.forEach { runCatching { it.close() } }
         runCatching { browser?.close() }
         runCatching { playwright?.close() }
     }
@@ -92,13 +86,12 @@ class ScreenshotService {
         val ctx =
             browser!!.newContext(
                 Browser.NewContextOptions()
-                    .setViewportSize(1400, 2000)
+                    .setViewportSize(1280, 1600)
                     .setUserAgent(
                         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                     )
                     .setJavaScriptEnabled(true),
             )
-        // Block unnecessary resources to cut page load time
         ctx.route("**/*") { route ->
             val req = route.request()
             val type = req.resourceType()
@@ -114,75 +107,70 @@ class ScreenshotService {
         return ctx
     }
 
-    private fun borrowContext(): BrowserContext {
-        // Try to get one from the pool; if empty, create a temporary one
-        return contextPool.poll(2, TimeUnit.SECONDS) ?: createContext()
-    }
-
-    private fun returnContext(ctx: BrowserContext) {
-        // Return to pool if there's room; otherwise close it
-        if (!contextPool.offer(ctx)) {
-            runCatching { ctx.close() }
-        }
-    }
-
     fun capturePercentiles(
         mlbamId: Int,
         fullName: String,
         isPitcher: Boolean,
     ): ScreenshotResult? {
-        if (browser == null) {
-            log.warn("Browser not initialized")
-            return null
-        }
         val slug = toSlug(fullName)
         val type = if (isPitcher) "pitcher" else "batter"
         val url = "https://baseballsavant.mlb.com/savant-player/$slug-$mlbamId?stats=statcast-r-$type"
 
-        val context = borrowContext()
-        var page: Page? = null
-        return try {
-            page = context.newPage()
-            page.setDefaultNavigationTimeout(45_000.0)
-            page.setDefaultTimeout(30_000.0)
+        return captureLock.withLock {
+            if (browser == null) {
+                log.warn("Browser not initialized")
+                return@withLock null
+            }
 
-            page.navigate(url)
-            page.waitForLoadState(LoadState.DOMCONTENTLOADED)
+            val context = createContext()
+            try {
+                val page = context.newPage()
+                try {
+                    page.setDefaultNavigationTimeout(45_000.0)
+                    page.setDefaultTimeout(30_000.0)
 
-            val element =
-                findPercentileContainerByHeading(page, fullName, mlbamId)
-                    ?: findPercentileContainerByFallbackSelectors(page, fullName, mlbamId)
-                    ?: run {
-                        log.warn("No percentile section found for $fullName ($mlbamId) - skipping")
-                        return null
+                    page.navigate(
+                        url,
+                        Page.NavigateOptions()
+                            .setWaitUntil(LoadState.DOMCONTENTLOADED)
+                            .setTimeout(45_000.0),
+                    )
+
+                    val element =
+                        findPercentileContainerByHeading(page, fullName, mlbamId)
+                            ?: findPercentileContainerByFallbackSelectors(page, fullName, mlbamId)
+                            ?: run {
+                                log.warn("No percentile section found for $fullName ($mlbamId) - skipping")
+                                return@withLock null
+                            }
+
+                    element.scrollIntoViewIfNeeded()
+
+                    runCatching {
+                        page.waitForFunction(
+                            "(el) => el.querySelector('canvas, svg, .bar, [class*=\"bar\"]') !== null",
+                            element,
+                            Page.WaitForFunctionOptions().setTimeout(5_000.0),
+                        )
                     }
+                    page.waitForTimeout(500.0)
 
-            element.scrollIntoViewIfNeeded()
-
-            // Wait for the chart to finish rendering (canvas or svg child) instead of a fixed sleep
-            runCatching {
-                page.waitForFunction(
-                    "(el) => el.querySelector('canvas, svg, .bar, [class*=\"bar\"]') !== null",
-                    element,
-                    Page.WaitForFunctionOptions().setTimeout(5_000.0),
-                )
+                    val bytes = element.screenshot()
+                    if (bytes == null || bytes.size < 2_000) {
+                        log.warn("Screenshot too small (${bytes?.size ?: 0}B) for $fullName - skipping")
+                        return@withLock null
+                    }
+                    log.info("Captured ${bytes.size / 1024}KB screenshot for $fullName ($mlbamId)")
+                    ScreenshotResult(savantUrl = url, pngBytes = bytes)
+                } catch (e: Exception) {
+                    log.warn("Screenshot failed for $fullName ($mlbamId): ${e.message}")
+                    null
+                } finally {
+                    runCatching { page.close() }
+                }
+            } finally {
+                runCatching { context.close() }
             }
-            // Brief settle time — much shorter than before
-            page.waitForTimeout(500.0)
-
-            val bytes = element.screenshot()
-            if (bytes == null || bytes.size < 2_000) {
-                log.warn("Screenshot too small (${bytes?.size ?: 0}B) for $fullName - skipping")
-                return null
-            }
-            log.info("Captured ${bytes.size / 1024}KB screenshot for $fullName ($mlbamId)")
-            ScreenshotResult(savantUrl = url, pngBytes = bytes)
-        } catch (e: Exception) {
-            log.warn("Screenshot failed for $fullName ($mlbamId): ${e.message}")
-            null
-        } finally {
-            runCatching { page?.close() }
-            returnContext(context)
         }
     }
 
