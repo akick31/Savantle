@@ -51,7 +51,7 @@ class ContactService(
             """
             From: $name <$email>
 
-            $messagemessage
+            $message
             """.trimIndent()
 
         mailSender.send(mail)

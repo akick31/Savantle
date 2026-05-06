@@ -209,7 +209,7 @@ class DailyPlayerService(
 
         val recentIds =
             repository
-                .findByGameDateBetween(date.minusDays(30), date.minusDays(1))
+                .findByGameDateBetween(date.minusDays(60), date.minusDays(1))
                 .map { it.mlbamId }
                 .toSet()
 
