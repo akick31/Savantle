@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y \
 RUN npx -y playwright@1.47.0 install chromium --with-deps
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 COPY ./build/libs/*.jar app.jar
 

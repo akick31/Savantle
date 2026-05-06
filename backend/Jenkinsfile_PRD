@@ -98,19 +98,22 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
+                    sleep(time: 40, unit: 'SECONDS')
                     def healthy = false
                     def attempts = 0
                     def maxAttempts = 30
                     while (!healthy && attempts < maxAttempts) {
                         attempts++
                         try {
+                            // Spring Boot returns 503 when aggregate health is not UP; curl -f fails on non-2xx.
+                            // Do not grep JSON (shell quoting around "status":"UP" breaks and always fails).
                             def status = sh(
-                                script: "curl -sf ${HEALTH_URL} | grep -q '\"status\":\"UP\"' && echo OK || echo FAIL",
+                                script: "curl -sf --max-time 15 ${env.HEALTH_URL} -o /dev/null && echo OK || echo FAIL",
                                 returnStdout: true
                             ).trim()
                             if (status == 'OK') {
                                 healthy = true
-                                echo "New container is healthy after ${attempts * 5}s"
+                                echo "New container is healthy (attempt ${attempts}, after initial wait + retries)"
                             }
                         } catch (e) {
                             // not ready yet
