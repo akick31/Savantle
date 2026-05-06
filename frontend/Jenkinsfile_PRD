@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     environment {
-        // Updated for Savantle naming conventions
         IMAGE_NAME = 'savantle-frontend-prd'
         CONTAINER_NAME = 'Savantle-Frontend-PRD'
+        CONTAINER_NAME_BLUE = 'Savantle-Frontend-PRD-BLUE'
         DOCKERFILE = 'Dockerfile_PRD'
+        HEALTH_URL = 'http://localhost:999'
     }
 
     stages {
@@ -20,7 +21,6 @@ pipeline {
             steps {
                 script {
                     def latestTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0'", returnStdout: true).trim()
-                    echo "Current Version: ${latestTag}"
                     env.VERSION = latestTag
                     currentBuild.description = "Version: ${env.VERSION}"
                     currentBuild.displayName = "Build #${env.BUILD_NUMBER} - Version: ${env.VERSION}"
@@ -30,26 +30,11 @@ pipeline {
 
         stage('Generate .env File') {
             steps {
-                script {
-                    echo 'Generating .env file for Savantle...'
-                    dir('frontend') {
-                        sh """
-                            cat <<EOF > .env
-                            VITE_API_BASE_URL=https://api.savantle.com/api/v1/savantle
-                            EOF
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Stop and Remove Existing Container') {
-            steps {
-                script {
-                    echo "Stopping and removing the existing ${env.CONTAINER_NAME} instance..."
+                dir('frontend') {
                     sh """
-                        docker stop ${CONTAINER_NAME} || echo "Savantle is not running."
-                        docker rm ${CONTAINER_NAME} || echo "No old Savantle instance to remove."
+                        cat <<EOF > .env
+                        VITE_API_BASE_URL=https://api.savantle.com/api/v1/savantle
+                        EOF
                     """
                 }
             }
@@ -57,46 +42,71 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image for Savantle Frontend...'
                 dir('frontend') {
-                    sh """
-                        docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:latest .
-                    """
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:latest ."
                 }
             }
         }
 
-        stage('Run New Container') {
+        stage('Start New Container') {
+            steps {
+                sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                sh """
+                    docker run -d --name ${CONTAINER_NAME_BLUE} \
+                        -p 999:999 \
+                        --env-file frontend/.env \
+                        ${IMAGE_NAME}:latest
+                """
+            }
+        }
+
+        stage('Health Check') {
             steps {
                 script {
-                    echo 'Running the new container on port 999...'
-                    dir('frontend') {
-                        sh """
-                            docker run -d --name ${CONTAINER_NAME} \
-                                -p 999:999 \
-                                --env-file .env \
-                                ${IMAGE_NAME}:latest
-                        """
+                    def healthy = false
+                    def attempts = 0
+                    def maxAttempts = 24
+                    while (!healthy && attempts < maxAttempts) {
+                        attempts++
+                        try {
+                            def status = sh(
+                                script: "curl -sf -o /dev/null -w '%{http_code}' ${HEALTH_URL}",
+                                returnStdout: true
+                            ).trim()
+                            if (status == '200') {
+                                healthy = true
+                                echo "New container is healthy after ${attempts * 5}s"
+                            }
+                        } catch (e) {
+                            // not ready yet
+                        }
+                        if (!healthy) {
+                            echo "Waiting for health check... attempt ${attempts}/${maxAttempts}"
+                            sleep 5
+                        }
+                    }
+                    if (!healthy) {
+                        sh "docker logs ${CONTAINER_NAME_BLUE} --tail=50"
+                        sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                        error("New container failed to become healthy after ${maxAttempts * 5}s — rolled back")
                     }
                 }
             }
         }
 
-        stage('Cleanup') {
+        stage('Swap Containers') {
             steps {
-                script {
-                    echo 'Cleaning up sensitive files...'
-                    sh 'rm -f frontend/.env'
-                }
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+                sh "docker rename ${CONTAINER_NAME_BLUE} ${CONTAINER_NAME}"
+                sh "docker update --restart=always ${CONTAINER_NAME}"
             }
         }
 
-        stage('Cleanup Docker System') {
+        stage('Cleanup') {
             steps {
-                script {
-                    echo 'Pruning unused Docker resources...'
-                    sh 'docker system prune -f'
-                }
+                sh 'rm -f frontend/.env'
+                sh 'docker system prune -f'
             }
         }
     }
@@ -106,6 +116,7 @@ pipeline {
             echo 'Savantle Frontend PRD deployed successfully!'
         }
         failure {
+            sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
             echo 'Savantle Frontend PRD deployment failed.'
         }
     }

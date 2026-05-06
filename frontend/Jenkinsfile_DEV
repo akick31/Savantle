@@ -2,11 +2,9 @@ pipeline {
     agent any
 
     environment {
-        // Updated for Savantle naming
         IMAGE_NAME = 'savantle-frontend-dev'
         CONTAINER_NAME = 'Savantle-Frontend-DEV'
         DOCKERFILE = 'Dockerfile_DEV'
-        // If Savantle needs specific credentials, you can add them here later
     }
 
     stages {
@@ -21,7 +19,6 @@ pipeline {
             steps {
                 script {
                     def latestTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0'", returnStdout: true).trim()
-                    echo "Current Version: ${latestTag}"
                     env.VERSION = latestTag
                     currentBuild.description = "Version: ${env.VERSION}"
                     currentBuild.displayName = "Build #${env.BUILD_NUMBER} - Version: ${env.VERSION}"
@@ -31,74 +28,47 @@ pipeline {
 
         stage('Generate .env File') {
             steps {
-                script {
-                    echo 'Generating .env file for Savantle DEV...'
-                    dir('frontend') {
-                        // Pointing to your VPS IP on a new dev port (e.g., 164 for Dev API)
-                        sh """
-                            cat <<EOF > .env
-                            VITE_API_BASE_URL=https://dev.api.savantle.com/api/v1/savantle
-                            EOF
-                        """
-                    }
+                dir('frontend') {
+                    sh """
+                        cat <<EOF > .env
+                        VITE_API_BASE_URL=https://dev.api.savantle.com/api/v1/savantle
+                        EOF
+                    """
                 }
             }
         }
 
         stage('Stop and Remove Existing Container') {
             steps {
-                script {
-                    echo "Stopping and removing the existing ${env.CONTAINER_NAME} instance..."
-                    sh """
-                        docker stop ${CONTAINER_NAME} || echo "Savantle DEV is not running."
-                        docker rm ${CONTAINER_NAME} || echo "No old Savantle DEV instance to remove."
-                    """
-                }
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image for Savantle Frontend DEV...'
                 dir('frontend') {
-                    sh """
-                        docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:latest .
-                    """
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:latest ."
                 }
             }
         }
 
         stage('Run New Container') {
             steps {
-                script {
-                    echo 'Running the Savantle DEV container on port 921...'
-                    dir('frontend') {
-                        sh """
-                            docker run -d --name ${CONTAINER_NAME} \
-                                -p 921:921 \
-                                --env-file .env \
-                                ${IMAGE_NAME}:latest
-                        """
-                    }
-                }
+                sh """
+                    docker run -d --name ${CONTAINER_NAME} \
+                        -p 921:921 \
+                        --env-file frontend/.env \
+                        --restart=always \
+                        ${IMAGE_NAME}:latest
+                """
             }
         }
 
         stage('Cleanup') {
             steps {
-                script {
-                    echo 'Cleaning up temporary files...'
-                    sh 'rm -f frontend/.env'
-                }
-            }
-        }
-
-        stage('Cleanup Docker System') {
-            steps {
-                script {
-                    echo 'Pruning unused Docker resources...'
-                    sh 'docker system prune -f'
-                }
+                sh 'rm -f frontend/.env'
+                sh 'docker system prune -f'
             }
         }
     }

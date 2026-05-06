@@ -16,7 +16,30 @@ pipeline {
     }
 
     stages {
-        // ... (Checkout and Get Version stages identical to PRD)
+        stage('Checkout') {
+            steps {
+                echo 'Checking out the Savantle Backend project...'
+                checkout scm
+            }
+        }
+
+        stage('Get Version') {
+            steps {
+                script {
+                    def latestTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0'", returnStdout: true).trim()
+                    env.VERSION = latestTag
+                    currentBuild.description = "Version: ${env.VERSION}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - Version: ${env.VERSION}"
+                }
+            }
+        }
+
+        stage('Stop and Remove Existing Container') {
+            steps {
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+            }
+        }
 
         stage('Build') {
             steps {
@@ -24,6 +47,8 @@ pipeline {
                     script {
                         def propertiesContent = """
                             server.port=164
+                            server.shutdown=graceful
+                            spring.lifecycle.timeout-per-shutdown-phase=30s
                             spring.datasource.url=jdbc:mariadb://51.81.32.234:3306/savantle_dev
                             spring.datasource.username=${env.DB_USERNAME}
                             spring.datasource.password=${env.DB_PASSWORD}
@@ -55,12 +80,24 @@ pipeline {
             }
         }
 
+        stage('Build New Docker Image') {
+            steps {
+                dir('backend') {
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:${DOCKERFILE} ."
+                }
+            }
+        }
+
         stage('Run Container') {
             steps {
                 sh "docker run --network='host' -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
             }
         }
 
-        // ... (Cleanup stages identical)
+        stage('Cleanup') {
+            steps {
+                sh 'docker system prune -f'
+            }
+        }
     }
 }

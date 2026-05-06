@@ -4,6 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = 'savantle-backend-prd'
         CONTAINER_NAME = 'Savantle-Backend-PRD'
+        CONTAINER_NAME_BLUE = 'Savantle-Backend-PRD-BLUE'
         DOCKERFILE = 'Dockerfile_PRD'
         APP_PROPERTIES = './src/main/resources/application.properties'
         DB_USERNAME = credentials('DB_USERNAME')
@@ -13,6 +14,7 @@ pipeline {
         SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
+        HEALTH_URL = 'http://localhost:163/actuator/health'
     }
 
     stages {
@@ -34,23 +36,14 @@ pipeline {
             }
         }
 
-        stage('Stop and Remove Existing Container') {
-            steps {
-                script {
-                    sh """
-                        docker stop ${CONTAINER_NAME} || echo "Savantle Backend is not running."
-                        docker rm ${CONTAINER_NAME} || echo "No old Savantle instance to remove."
-                    """
-                }
-            }
-        }
-
         stage('Build') {
             steps {
                 dir('backend') {
                     script {
                         def propertiesContent = """
                             server.port=163
+                            server.shutdown=graceful
+                            spring.lifecycle.timeout-per-shutdown-phase=30s
                             spring.datasource.url=jdbc:mariadb://51.81.32.234:3306/savantle
                             spring.datasource.username=${env.DB_USERNAME}
                             spring.datasource.password=${env.DB_PASSWORD}
@@ -92,9 +85,53 @@ pipeline {
             }
         }
 
-        stage('Run Container') {
+        stage('Start New Container') {
             steps {
-                sh "docker run --network='host' -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+                sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                sh "docker run --network='host' -d --name ${CONTAINER_NAME_BLUE} ${IMAGE_NAME}:${DOCKERFILE}"
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    def healthy = false
+                    def attempts = 0
+                    def maxAttempts = 30
+                    while (!healthy && attempts < maxAttempts) {
+                        attempts++
+                        try {
+                            def status = sh(
+                                script: "curl -sf ${HEALTH_URL} | grep -q '\"status\":\"UP\"' && echo OK || echo FAIL",
+                                returnStdout: true
+                            ).trim()
+                            if (status == 'OK') {
+                                healthy = true
+                                echo "New container is healthy after ${attempts * 5}s"
+                            }
+                        } catch (e) {
+                            // not ready yet
+                        }
+                        if (!healthy) {
+                            echo "Waiting for health check... attempt ${attempts}/${maxAttempts}"
+                            sleep 5
+                        }
+                    }
+                    if (!healthy) {
+                        sh "docker logs ${CONTAINER_NAME_BLUE} --tail=50"
+                        sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                        error("New container failed to become healthy after ${maxAttempts * 5}s — rolled back")
+                    }
+                }
+            }
+        }
+
+        stage('Swap Containers') {
+            steps {
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+                sh "docker rename ${CONTAINER_NAME_BLUE} ${CONTAINER_NAME}"
+                sh "docker update --restart=always ${CONTAINER_NAME}"
             }
         }
 
@@ -102,6 +139,12 @@ pipeline {
             steps {
                 sh 'docker system prune -f'
             }
+        }
+    }
+
+    post {
+        failure {
+            sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
         }
     }
 }
