@@ -5,6 +5,7 @@ pipeline {
         IMAGE_NAME = 'savantle-frontend-dev'
         CONTAINER_NAME = 'Savantle-Frontend-DEV'
         DOCKERFILE = 'Dockerfile_DEV'
+        DOCKER_BUILDKIT = '1'
     }
 
     stages {

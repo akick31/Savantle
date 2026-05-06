@@ -7,6 +7,7 @@ pipeline {
         CONTAINER_NAME_BLUE = 'Savantle-Frontend-PRD-BLUE'
         DOCKERFILE = 'Dockerfile_PRD'
         HEALTH_URL = 'http://localhost:999'
+        DOCKER_BUILDKIT = '1'
     }
 
     stages {
@@ -88,7 +89,7 @@ pipeline {
                     if (!healthy) {
                         sh "docker logs ${CONTAINER_NAME_BLUE} --tail=50"
                         sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
-                        error("New container failed to become healthy after ${maxAttempts * 5}s — rolled back")
+                        error("New container failed to become healthy after ${maxAttempts * 5}s - rolled back")
                     }
                 }
             }
