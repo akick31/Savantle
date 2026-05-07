@@ -9,6 +9,7 @@ pipeline {
         BLUE_HOST_PORT = '11999'
         DOCKERFILE = 'Dockerfile_PRD'
         DOCKER_BUILDKIT = '1'
+        GITHUB_PAT = credentials('Github PAT')
     }
 
     stages {
@@ -19,13 +20,54 @@ pipeline {
             }
         }
 
-        stage('Get Version') {
+        stage('Bump Version & Tag') {
+            when { branch 'main' }
             steps {
                 script {
-                    def latestTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0'", returnStdout: true).trim()
+                    def latestTag = sh(
+                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
+                        returnStdout: true
+                    ).trim()
+                    def version = latestTag.replaceFirst(/^v/, '')
+                    def parts   = version.tokenize('.')
+                    def major   = parts[0].toInteger()
+                    def minor   = parts[1].toInteger()
+                    def patch   = parts[2].toInteger()
+
+                    def msg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    if (msg.contains('[major]')) {
+                        major++; minor = 0; patch = 0
+                    } else if (msg.contains('[minor]')) {
+                        minor++; patch = 0
+                    } else {
+                        patch++
+                    }
+
+                    def newVersion = "v${major}.${minor}.${patch}"
+                    sh """
+                        git config user.email "jenkins@boxscore.build"
+                        git config user.name  "Jenkins"
+                        git tag -a ${newVersion} -m "Auto-release ${newVersion} [build ${env.BUILD_NUMBER}]"
+                        git push https://${env.GITHUB_PAT_USR}:${env.GITHUB_PAT_PSW}@github.com/\$(git remote get-url origin | sed 's|.*github.com[:/]||') ${newVersion}
+                    """
+                    env.VERSION = newVersion
+                    currentBuild.description = "Version: ${newVersion}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${newVersion}"
+                }
+            }
+        }
+
+        stage('Get Version') {
+            when { not { branch 'main' } }
+            steps {
+                script {
+                    def latestTag = sh(
+                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
+                        returnStdout: true
+                    ).trim()
                     env.VERSION = latestTag
-                    currentBuild.description = "Version: ${env.VERSION}"
-                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - Version: ${env.VERSION}"
+                    currentBuild.description = "Version: ${latestTag}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${latestTag}"
                 }
             }
         }
