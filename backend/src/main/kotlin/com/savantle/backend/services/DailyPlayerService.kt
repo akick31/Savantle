@@ -35,7 +35,6 @@ class DailyPlayerService(
         private const val RANDOM_GAME_TTL_HOURS = 6L
         private const val LIVE_SCREENSHOT_TTL_HOURS = 24L
         private const val MAX_RANDOM_SCREENSHOT_ATTEMPTS = 25
-        /** Exclude today's daily and recent Savantle answers from random mode. */
         private const val RANDOM_EXCLUDE_RECENT_DAYS = 30L
     }
 
@@ -211,6 +210,7 @@ class DailyPlayerService(
                 if (filtered.isEmpty()) pool else filtered
             }
 
+        // Past daily answers only (in-memory random games never hit the DB and do not affect this pool).
         val recentIds =
             repository
                 .findByGameDateBetween(date.minusDays(60), date.minusDays(1))
@@ -473,10 +473,20 @@ class DailyPlayerService(
             .toSet()
     }
 
+    /** MLBAM IDs already assigned as a future daily (curated rows through [daysAhead]). */
+    private fun upcomingDailySavantleMlbamIds(): Set<Int> {
+        val today = LocalDate.now()
+        val end = today.plusDays(daysAhead.toLong())
+        return repository
+            .findByGameDateBetween(today, end)
+            .map { it.mlbamId }
+            .toSet()
+    }
+
     fun createRandomGame(): Map<String, Any> {
         pruneExpiredRandomGames()
 
-        val excludedMlbamIds = recentDailySavantleMlbamIds()
+        val excludedMlbamIds = recentDailySavantleMlbamIds() + upcomingDailySavantleMlbamIds()
 
         val basePool =
             if (!isEarlySeason(LocalDate.now()) && qualifiedIds.isNotEmpty()) {

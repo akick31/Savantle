@@ -140,6 +140,18 @@ location of your Java installation."
     fi
 fi
 
+# Savantle: Spring Boot 3 needs JDK 17+ for Gradle. On macOS, if java is 8/11, switch JAVA_HOME to JDK 17.
+if [ "$darwin" = "true" ] && [ -x /usr/libexec/java_home ]; then
+    JAVA_MAJOR=$("$JAVACMD" -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F. '{if ($1==1) print $2; else print $1; exit}')
+    if [ -n "$JAVA_MAJOR" ] && [ "$JAVA_MAJOR" -lt 17 ] 2>/dev/null; then
+        JAVA_HOME_17=$(/usr/libexec/java_home -v 17 2>/dev/null) || true
+        if [ -n "$JAVA_HOME_17" ] && [ -x "$JAVA_HOME_17/bin/java" ]; then
+            JAVA_HOME="$JAVA_HOME_17"
+            JAVACMD="$JAVA_HOME/bin/java"
+        fi
+    fi
+fi
+
 # Increase the maximum file descriptors if we can.
 if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
     case $MAX_FD in #(

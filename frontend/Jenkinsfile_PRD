@@ -5,6 +5,8 @@ pipeline {
         IMAGE_NAME = 'savantle-frontend-prd'
         CONTAINER_NAME = 'Savantle-Frontend-PRD'
         CONTAINER_NAME_BLUE = 'Savantle-Frontend-PRD-BLUE'
+        /** Host port for blue only; prod stays on 999 so blue must not bind 999 while prod runs. */
+        BLUE_HOST_PORT = '11999'
         DOCKERFILE = 'Dockerfile_PRD'
         DOCKER_BUILDKIT = '1'
     }
@@ -48,13 +50,13 @@ pipeline {
             }
         }
 
-        stage('Start New Container') {
+        stage('Start Blue Container') {
             steps {
                 sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
                 sh """
-                    docker run -d --name ${CONTAINER_NAME_BLUE} \
-                        -p 999:999 \
-                        --env-file frontend/.env \
+                    docker run -d --name ${CONTAINER_NAME_BLUE} \\
+                        -p ${env.BLUE_HOST_PORT}:999 \\
+                        --env-file frontend/.env \\
                         ${IMAGE_NAME}:latest
                 """
             }
@@ -97,10 +99,20 @@ pipeline {
 
         stage('Swap Containers') {
             steps {
-                sh "docker stop ${CONTAINER_NAME} || true"
-                sh "docker rm ${CONTAINER_NAME} || true"
-                sh "docker rename ${CONTAINER_NAME_BLUE} ${CONTAINER_NAME}"
-                sh "docker update --restart=always ${CONTAINER_NAME}"
+                sh """
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+                    docker stop ${CONTAINER_NAME_BLUE} || true
+                    docker rm ${CONTAINER_NAME_BLUE} || true
+                """
+                dir('frontend') {
+                    sh """
+                        docker run -d --restart=always --name ${CONTAINER_NAME} \\
+                            -p 999:999 \\
+                            --env-file .env \\
+                            ${IMAGE_NAME}:latest
+                    """
+                }
             }
         }
 

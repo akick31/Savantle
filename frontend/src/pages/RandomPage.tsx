@@ -33,7 +33,7 @@ export default function RandomPage() {
   if (isLoading) {
     return (
       <div className="w-full max-w-[480px] flex-1 flex flex-col items-center justify-center gap-2 py-16">
-        <p className="text-sv-muted text-sm animate-pulse">Finding a random player...</p>
+        <p className="text-sv-muted text-sm animate-pulse">Finding a random player…</p>
         <p className="text-sv-muted text-xs opacity-60">Capturing their percentile chart from Baseball Savant</p>
       </div>
     );
