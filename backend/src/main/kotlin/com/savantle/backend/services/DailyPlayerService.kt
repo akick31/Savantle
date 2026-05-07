@@ -379,7 +379,7 @@ class DailyPlayerService(
         if (scheduledType != null && scheduledType !in confirmedTypes) {
             hints +=
                 when (scheduledType) {
-                    "POSITION" -> hint("POSITION", "Position", formatPosition(player), confirmed = false)
+                    "POSITION" -> hint("POSITION", if (player.isPitcher) "Handedness" else "Position", formatPosition(player), confirmed = false)
                     "LEAGUE" -> hint("LEAGUE", "League", player.league, confirmed = false)
                     "DIVISION" -> hint("DIVISION", "Division", player.division, confirmed = false)
                     "TEAM" -> hint("TEAM", "Team", player.teamName, confirmed = false)
