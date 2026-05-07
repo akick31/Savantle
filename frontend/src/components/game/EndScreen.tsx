@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { GameStatus, PlayerInfo, HintData, PlayerSearchItem } from '../../types';
+import { useState, useEffect } from 'react';
+import { GameStatus, PlayerInfo, HintData, PlayerSearchItem, GlobalStats } from '../../types';
 import { buildShareText, calculateSaventleNumber } from '../../utils/share';
 import { normalizeForSearch } from '../../utils/normalize';
+import { fetchGlobalStats } from '../../services/api';
 
 interface EndScreenProps {
   status: GameStatus;
@@ -22,7 +23,13 @@ interface EndScreenProps {
 
 export default function EndScreen({ status, playerInfo, guessCount, date, hints, currentStreak, guesses, players, isDailyMode = true, onReplay, onRandom, onPlayAnother, onPlayAnotherLabel, onOpenPicker }: EndScreenProps) {
   const [copied, setCopied] = useState(false);
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const won = status === 'won';
+
+  useEffect(() => {
+    if (!isDailyMode) return;
+    fetchGlobalStats().then(setGlobalStats).catch(() => {});
+  }, [isDailyMode]);
 
   const handleShare = async () => {
     const saventleNum = calculateSaventleNumber(date);
@@ -133,6 +140,54 @@ export default function EndScreen({ status, playerInfo, guessCount, date, hints,
                 <span className="text-sv-text font-medium">{hint.value}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {isDailyMode && globalStats && (
+        <div className="border-t border-sv-border pt-4 space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-sv-muted">Today's Global Stats</p>
+            <p className="mt-0.5 text-[9px] text-sv-muted">Avg guesses counts losses as 6.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-sv-border/40 rounded-lg py-2">
+              <p className="text-base font-bold text-sv-text">{globalStats.totalWins.toLocaleString()}</p>
+              <p className="text-[10px] text-sv-muted mt-0.5">Wins</p>
+            </div>
+            <div className="bg-sv-border/40 rounded-lg py-2">
+              <p className="text-base font-bold text-sv-text">{globalStats.totalLosses.toLocaleString()}</p>
+              <p className="text-[10px] text-sv-muted mt-0.5">Losses</p>
+            </div>
+            <div className="bg-sv-border/40 rounded-lg py-2">
+              <p className="text-base font-bold text-sv-text">{globalStats.averageGuesses.toFixed(2)}</p>
+              <p className="text-[10px] text-sv-muted mt-0.5">Avg Guesses</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-sv-muted mb-1.5">Winning Guess Distribution</p>
+            {(() => {
+              const total = globalStats.totalWins + globalStats.totalLosses;
+              const maxCount = Math.max(...[1,2,3,4,5].map(n => globalStats.guessDistribution[String(n)] ?? 0), 1);
+              return [1, 2, 3, 4, 5].map(n => {
+                const count = globalStats.guessDistribution[String(n)] ?? 0;
+                const barPct = Math.round((count / maxCount) * 100);
+                const labelPct = total > 0 ? Math.round((count / total) * 100) : 0;
+                return (
+                  <div key={n} className="flex items-center gap-2">
+                    <span className="text-[10px] text-sv-muted w-3 flex-shrink-0">{n}</span>
+                    <div className="flex-1 bg-sv-border rounded h-4 overflow-hidden">
+                      <div
+                        className="h-full bg-sv-accent rounded flex items-center justify-end pr-1.5"
+                        style={{ width: `${Math.max(barPct, count > 0 ? 6 : 0)}%` }}
+                      >
+                        {count > 0 && <span className="text-[9px] font-bold text-sv-bg">{labelPct}%</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       )}

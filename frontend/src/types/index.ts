@@ -65,3 +65,10 @@ export interface Settings {
   darkMode: boolean;
   highContrast: boolean;
 }
+
+export interface GlobalStats {
+  totalWins: number;
+  totalLosses: number;
+  guessDistribution: Record<string, number>;
+  averageGuesses: number;
+}

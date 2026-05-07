@@ -8,6 +8,7 @@ import StatsModal from '../components/modals/StatsModal';
 import SettingsModal from '../components/modals/SettingsModal';
 import ContactModal from '../components/modals/ContactModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
+import GlobalStatsModal from '../components/modals/GlobalStatsModal';
 import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
 
 type GameMode = 'daily' | 'replay' | 'random';
@@ -26,6 +27,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [replayOpen, setReplayOpen] = useState(false);
+  const [globalStatsOpen, setGlobalStatsOpen] = useState(false);
 
   function handleReplaySelect(date: string) {
     navigate(`/replay/${date}`);
@@ -36,6 +38,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <Header
         onHowToPlay={() => setHtpOpen(true)}
         onStats={() => setStatsOpen(true)}
+        onGlobalStats={() => setGlobalStatsOpen(true)}
         onSettings={() => setSettingsOpen(true)}
         onReplay={() => setReplayOpen(true)}
         onRandom={() => navigate('/random')}
@@ -77,6 +80,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} onUpdate={updateSettings} />
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
       <ReplayPickerModal open={replayOpen} onClose={() => setReplayOpen(false)} onSelect={handleReplaySelect} />
+      <GlobalStatsModal open={globalStatsOpen} onClose={() => setGlobalStatsOpen(false)} />
       <DowntimeApologyModal />
     </div>
   );

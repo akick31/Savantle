@@ -71,4 +71,44 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
         val start = end.minusDays(days.toLong())
         return ResponseEntity.ok(getSummary(start, end))
     }
+
+    fun getGlobalStats(): ResponseEntity<Any> {
+        val today = analyticsDate()
+        val all = repository.findByEventDateBetween(today, today)
+        val byType = all.groupBy { it.eventType }.mapValues { (_, rows) -> rows.sumOf { it.count } }
+
+        val wins = byType["GAME_WON"] ?: 0L
+        val losses = byType["GAME_LOST"] ?: 0L
+        val totalGames = wins + losses
+
+        val guessDistribution = mapOf(
+            "1" to (byType["GUESS_1"] ?: 0L),
+            "2" to (byType["GUESS_2"] ?: 0L),
+            "3" to (byType["GUESS_3"] ?: 0L),
+            "4" to (byType["GUESS_4"] ?: 0L),
+            "5" to (byType["GUESS_5"] ?: 0L),
+        )
+
+        val guessSum = 1L * (byType["GUESS_1"] ?: 0L) +
+            2L * (byType["GUESS_2"] ?: 0L) +
+            3L * (byType["GUESS_3"] ?: 0L) +
+            4L * (byType["GUESS_4"] ?: 0L) +
+            5L * (byType["GUESS_5"] ?: 0L) +
+            6L * losses
+
+        val averageGuesses = if (totalGames > 0) {
+            (guessSum.toDouble() / totalGames * 100).toLong() / 100.0
+        } else {
+            0.0
+        }
+
+        return ResponseEntity.ok(
+            mapOf(
+                "totalWins" to wins,
+                "totalLosses" to losses,
+                "guessDistribution" to guessDistribution,
+                "averageGuesses" to averageGuesses,
+            ),
+        )
+    }
 }

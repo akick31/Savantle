@@ -80,6 +80,9 @@ class GameController(
         @RequestBody body: Map<String, String>,
     ): ResponseEntity<Any> = analyticsService.recordFromRequest(body)
 
+    @GetMapping("/stats")
+    fun getGlobalStats(): ResponseEntity<Any> = analyticsService.getGlobalStats()
+
     @GetMapping("/admin/analytics")
     fun getAnalytics(
         @RequestParam(defaultValue = "30") days: Int,

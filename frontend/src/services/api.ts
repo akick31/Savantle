@@ -1,4 +1,4 @@
-import { DailyData, GuessResult, PlayerSearchItem, RandomGameData } from '../types';
+import { DailyData, GlobalStats, GuessResult, PlayerSearchItem, RandomGameData } from '../types';
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
 export const BASE_URL = API_ORIGIN
@@ -99,6 +99,12 @@ export async function recordAnalytics(eventType: string): Promise<void> {
   } catch (e) {
     console.error('[analytics] failed to record', eventType, e);
   }
+}
+
+export async function fetchGlobalStats(): Promise<GlobalStats> {
+  const res = await fetch(`${BASE_URL}/stats`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
 export async function submitContact(payload: {

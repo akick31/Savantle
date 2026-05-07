@@ -3,6 +3,7 @@ type GameMode = 'daily' | 'replay' | 'random';
 interface HeaderProps {
   onHowToPlay: () => void;
   onStats: () => void;
+  onGlobalStats: () => void;
   onSettings: () => void;
   onReplay: () => void;
   onRandom: () => void;
@@ -13,6 +14,7 @@ interface HeaderProps {
 export default function Header({
   onHowToPlay,
   onStats,
+  onGlobalStats,
   onSettings,
   onReplay,
   onRandom,
@@ -52,6 +54,13 @@ export default function Header({
 
         <div className="w-px h-4 bg-sv-border mx-1" />
 
+        <button onClick={onGlobalStats} className={iconBtn} aria-label="Global statistics" title="Global statistics">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+        </button>
         <button onClick={onStats} className={iconBtn} aria-label="Statistics" title="Statistics">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="12" width="4" height="9" rx="1" />
