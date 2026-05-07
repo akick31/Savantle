@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStats } from '../hooks/useStats';
 import { useSettings } from '../hooks/useSettings';
 import Header from '../components/layout/Header';
@@ -12,6 +11,7 @@ import GlobalStatsModal from '../components/modals/GlobalStatsModal';
 import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
 
 type GameMode = 'daily' | 'replay' | 'random';
+type ModalId = 'how-to-play' | 'stats' | 'global-stats' | 'settings' | 'contact' | 'replay-picker';
 
 interface ShellProps {
   gameMode: GameMode;
@@ -20,14 +20,19 @@ interface ShellProps {
 
 export default function Shell({ gameMode, children }: ShellProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { stats } = useStats();
   const { settings, updateSettings } = useSettings();
-  const [htpOpen, setHtpOpen] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [contactOpen, setContactOpen] = useState(false);
-  const [replayOpen, setReplayOpen] = useState(false);
-  const [globalStatsOpen, setGlobalStatsOpen] = useState(false);
+
+  const activeModal = searchParams.get('modal') as ModalId | null;
+
+  function openModal(id: ModalId) {
+    setSearchParams({ modal: id }, { replace: false });
+  }
+
+  function closeModal() {
+    navigate(-1);
+  }
 
   function handleReplaySelect(date: string) {
     navigate(`/replay/${date}`);
@@ -36,11 +41,11 @@ export default function Shell({ gameMode, children }: ShellProps) {
   return (
     <div className="min-h-screen bg-sv-bg flex flex-col items-center px-4 py-4">
       <Header
-        onHowToPlay={() => setHtpOpen(true)}
-        onStats={() => setStatsOpen(true)}
-        onGlobalStats={() => setGlobalStatsOpen(true)}
-        onSettings={() => setSettingsOpen(true)}
-        onReplay={() => setReplayOpen(true)}
+        onHowToPlay={() => openModal('how-to-play')}
+        onStats={() => openModal('stats')}
+        onGlobalStats={() => openModal('global-stats')}
+        onSettings={() => openModal('settings')}
+        onReplay={() => openModal('replay-picker')}
         onRandom={() => navigate('/random')}
         gameMode={gameMode}
         onBackToToday={() => navigate('/')}
@@ -51,7 +56,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <footer className="mt-8 pb-4 text-center flex flex-col items-center gap-1.5">
         <p className="text-sv-muted text-xs opacity-50">Stats via Baseball Savant</p>
         <button
-          onClick={() => setContactOpen(true)}
+          onClick={() => openModal('contact')}
           className="inline-flex items-center gap-1 text-sv-muted text-xs hover:text-sv-accent transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -75,12 +80,12 @@ export default function Shell({ gameMode, children }: ShellProps) {
         </a>
       </footer>
 
-      <HowToPlay open={htpOpen} onClose={() => setHtpOpen(false)} onContact={() => setContactOpen(true)} />
-      <StatsModal open={statsOpen} onClose={() => setStatsOpen(false)} stats={stats} />
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} onUpdate={updateSettings} />
-      <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
-      <ReplayPickerModal open={replayOpen} onClose={() => setReplayOpen(false)} onSelect={handleReplaySelect} />
-      <GlobalStatsModal open={globalStatsOpen} onClose={() => setGlobalStatsOpen(false)} />
+      <HowToPlay open={activeModal === 'how-to-play'} onClose={closeModal} onContact={() => openModal('contact')} />
+      <StatsModal open={activeModal === 'stats'} onClose={closeModal} stats={stats} />
+      <SettingsModal open={activeModal === 'settings'} onClose={closeModal} settings={settings} onUpdate={updateSettings} />
+      <ContactModal open={activeModal === 'contact'} onClose={closeModal} />
+      <ReplayPickerModal open={activeModal === 'replay-picker'} onClose={closeModal} onSelect={handleReplaySelect} />
+      <GlobalStatsModal open={activeModal === 'global-stats'} onClose={closeModal} />
       <DowntimeApologyModal />
     </div>
   );
