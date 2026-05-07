@@ -81,26 +81,29 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
         val losses = byType["GAME_LOST"] ?: 0L
         val totalGames = wins + losses
 
-        val guessDistribution = mapOf(
-            "1" to (byType["GUESS_1"] ?: 0L),
-            "2" to (byType["GUESS_2"] ?: 0L),
-            "3" to (byType["GUESS_3"] ?: 0L),
-            "4" to (byType["GUESS_4"] ?: 0L),
-            "5" to (byType["GUESS_5"] ?: 0L),
-        )
+        val guessDistribution =
+            mapOf(
+                "1" to (byType["GUESS_1"] ?: 0L),
+                "2" to (byType["GUESS_2"] ?: 0L),
+                "3" to (byType["GUESS_3"] ?: 0L),
+                "4" to (byType["GUESS_4"] ?: 0L),
+                "5" to (byType["GUESS_5"] ?: 0L),
+            )
 
-        val guessSum = 1L * (byType["GUESS_1"] ?: 0L) +
-            2L * (byType["GUESS_2"] ?: 0L) +
-            3L * (byType["GUESS_3"] ?: 0L) +
-            4L * (byType["GUESS_4"] ?: 0L) +
-            5L * (byType["GUESS_5"] ?: 0L) +
-            6L * losses
+        val guessSum =
+            1L * (byType["GUESS_1"] ?: 0L) +
+                2L * (byType["GUESS_2"] ?: 0L) +
+                3L * (byType["GUESS_3"] ?: 0L) +
+                4L * (byType["GUESS_4"] ?: 0L) +
+                5L * (byType["GUESS_5"] ?: 0L) +
+                6L * losses
 
-        val averageGuesses = if (totalGames > 0) {
-            (guessSum.toDouble() / totalGames * 100).toLong() / 100.0
-        } else {
-            0.0
-        }
+        val averageGuesses =
+            if (totalGames > 0) {
+                (guessSum.toDouble() / totalGames * 100).toLong() / 100.0
+            } else {
+                0.0
+            }
 
         return ResponseEntity.ok(
             mapOf(
