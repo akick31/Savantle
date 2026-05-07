@@ -6,7 +6,6 @@ pipeline {
         CONTAINER_NAME = 'Savantle-Frontend-PRD'
         CONTAINER_NAME_BLUE = 'Savantle-Frontend-PRD-BLUE'
         DOCKERFILE = 'Dockerfile_PRD'
-        HEALTH_URL = 'http://localhost:999'
         DOCKER_BUILDKIT = '1'
     }
 
@@ -64,6 +63,7 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
+                    sleep(time: 10, unit: 'SECONDS')
                     def healthy = false
                     def attempts = 0
                     def maxAttempts = 24
@@ -71,12 +71,12 @@ pipeline {
                         attempts++
                         try {
                             def status = sh(
-                                script: "curl -sf -o /dev/null -w '%{http_code}' ${HEALTH_URL}",
+                                script: "docker exec ${env.CONTAINER_NAME_BLUE} wget -q -O /dev/null http://127.0.0.1:999/ && echo OK || echo FAIL",
                                 returnStdout: true
                             ).trim()
-                            if (status == '200') {
+                            if (status == 'OK') {
                                 healthy = true
-                                echo "New container is healthy after ${attempts * 5}s"
+                                echo "New container is healthy (attempt ${attempts})"
                             }
                         } catch (e) {
                             // not ready yet

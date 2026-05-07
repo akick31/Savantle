@@ -14,7 +14,6 @@ pipeline {
         SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
-        HEALTH_URL = 'http://localhost:164/actuator/health'
         GRADLE_USER_HOME = "${env.WORKSPACE}/.gradle"
         DOCKER_BUILDKIT = '1'
     }
@@ -105,10 +104,10 @@ pipeline {
                     while (!healthy && attempts < maxAttempts) {
                         attempts++
                         try {
-                            // Spring Boot returns 503 when aggregate health is not UP; curl -f fails on non-2xx.
-                            // Do not grep JSON (shell quoting around "status":"UP" breaks and always fails).
+                            // Jenkins often runs inside Docker: localhost:164 here is the Jenkins container, not the
+                            // host where -p 164:163 is published. Probe the app from inside the blue container instead.
                             def status = sh(
-                                script: "curl -sf --max-time 15 ${env.HEALTH_URL} -o /dev/null && echo OK || echo FAIL",
+                                script: "docker exec ${env.CONTAINER_NAME_BLUE} curl -sf --max-time 15 http://127.0.0.1:163/actuator/health -o /dev/null && echo OK || echo FAIL",
                                 returnStdout: true
                             ).trim()
                             if (status == 'OK') {
