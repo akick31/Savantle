@@ -3,6 +3,7 @@ package com.savantle.backend.services
 import com.savantle.backend.model.DailyPlayer
 import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.model.RandomGame
+import com.savantle.backend.model.ScreenshotResult
 import com.savantle.backend.repositories.DailyPlayerRepository
 import jakarta.annotation.PostConstruct
 import jakarta.persistence.EntityManager
@@ -32,8 +33,10 @@ class DailyPlayerService(
     companion object {
         val PITCHER_POSITIONS = setOf("SP", "RP", "P")
         private const val RANDOM_GAME_TTL_HOURS = 6L
-        private const val LIVE_SCREENSHOT_TTL_HOURS = 4L
+        private const val LIVE_SCREENSHOT_TTL_HOURS = 24L
         private const val MAX_RANDOM_SCREENSHOT_ATTEMPTS = 25
+        /** Exclude today's daily and recent Savantle answers from random mode. */
+        private const val RANDOM_EXCLUDE_RECENT_DAYS = 30L
     }
 
     private val randomGames = ConcurrentHashMap<String, RandomGame>()
@@ -452,43 +455,64 @@ class DailyPlayerService(
 
     // ── Random player game (in-memory, never persisted) ───────────────────────
 
+    private fun captureRandomCandidateScreenshot(candidate: MLBPlayer): Pair<ScreenshotResult, MLBPlayer>? {
+        val isPitcher = candidate.position in PITCHER_POSITIONS
+        val result =
+            screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
+                ?: return null
+        return result to candidate
+    }
+
+    /** MLBAM IDs used as Savantle daily answers in the last [RANDOM_EXCLUDE_RECENT_DAYS] days (inclusive of today). */
+    private fun recentDailySavantleMlbamIds(): Set<Int> {
+        val today = LocalDate.now()
+        val start = today.minusDays(RANDOM_EXCLUDE_RECENT_DAYS)
+        return repository
+            .findByGameDateBetween(start, today)
+            .map { it.mlbamId }
+            .toSet()
+    }
+
     fun createRandomGame(): Map<String, Any> {
         pruneExpiredRandomGames()
 
-        val pool =
+        val excludedMlbamIds = recentDailySavantleMlbamIds()
+
+        val basePool =
             if (!isEarlySeason(LocalDate.now()) && qualifiedIds.isNotEmpty()) {
                 val filtered = rosterCache.filter { it.mlbamId in qualifiedIds }
                 filtered.ifEmpty { rosterCache }
             } else {
                 rosterCache
             }
+        val pool = basePool.filter { it.mlbamId !in excludedMlbamIds }
+        if (pool.isEmpty()) {
+            throw IllegalStateException("No eligible players for random game right now, try again shortly")
+        }
+
         val players = pool.shuffled()
-        if (players.isEmpty()) throw IllegalStateException("Roster not loaded yet, try again shortly")
-
-        for (candidate in players.asSequence().take(MAX_RANDOM_SCREENSHOT_ATTEMPTS)) {
-            val isPitcher = candidate.position in PITCHER_POSITIONS
-            val result =
-                screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
-                    ?: continue
-
+        for (candidate in players.take(MAX_RANDOM_SCREENSHOT_ATTEMPTS)) {
+            val got = captureRandomCandidateScreenshot(candidate) ?: continue
+            val (result, picked) = got
+            val isPitcher = picked.position in PITCHER_POSITIONS
             val gameId = UUID.randomUUID().toString()
             randomGames[gameId] =
                 RandomGame(
                     gameId = gameId,
-                    mlbamId = candidate.mlbamId,
-                    fullName = candidate.fullName,
-                    normalizedName = normalizeForSearch(candidate.fullName),
-                    position = candidate.position,
-                    throwingHand = candidate.throwingHand,
+                    mlbamId = picked.mlbamId,
+                    fullName = picked.fullName,
+                    normalizedName = normalizeForSearch(picked.fullName),
+                    position = picked.position,
+                    throwingHand = picked.throwingHand,
                     isPitcher = isPitcher,
-                    teamName = candidate.team.name,
-                    teamAbbr = candidate.team.abbreviation,
-                    league = candidate.team.league,
-                    division = candidate.team.division,
+                    teamName = picked.team.name,
+                    teamAbbr = picked.team.abbreviation,
+                    league = picked.team.league,
+                    division = picked.team.division,
                     savantUrl = result.savantUrl,
                     screenshot = result.pngBytes,
                 )
-            log.info("Random game created: ${candidate.fullName} ($gameId)")
+            log.info("Random game created: ${picked.fullName} ($gameId)")
             return mapOf("gameId" to gameId, "playerType" to if (isPitcher) "PITCHER" else "BATTER")
         }
         log.warn(

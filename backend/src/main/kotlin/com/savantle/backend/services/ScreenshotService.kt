@@ -47,6 +47,7 @@ class ScreenshotService {
     private var playwright: Playwright? = null
     private var browser: Browser? = null
 
+    /** Playwright route/context handling is not safe under concurrent use on one browser. */
     private val captureLock = ReentrantLock()
 
     @PostConstruct
@@ -93,7 +94,11 @@ class ScreenshotService {
                     .setJavaScriptEnabled(true),
             )
         ctx.route("**/*") { route ->
-            val req = route.request()
+            val req = runCatching { route.request() }.getOrNull()
+            if (req == null) {
+                runCatching { route.resume() }
+                return@route
+            }
             val type = req.resourceType()
             val url = req.url()
             if (type in BLOCKED_RESOURCE_TYPES ||
@@ -126,23 +131,23 @@ class ScreenshotService {
             try {
                 val page = context.newPage()
                 try {
-                    page.setDefaultNavigationTimeout(45_000.0)
-                    page.setDefaultTimeout(30_000.0)
+                    page.setDefaultNavigationTimeout(32_000.0)
+                    page.setDefaultTimeout(22_000.0)
 
                     page.navigate(
                         url,
                         Page.NavigateOptions()
                             .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
-                            .setTimeout(45_000.0),
+                            .setTimeout(32_000.0),
                     )
 
                     val element =
                         findPercentileContainerByHeading(page, fullName, mlbamId)
                             ?: findPercentileContainerByFallbackSelectors(page, fullName, mlbamId)
-                            ?: run {
-                                log.warn("No percentile section found for $fullName ($mlbamId) - skipping")
-                                return@withLock null
-                            }
+                    if (element == null) {
+                        log.warn("No percentile section found for $fullName ($mlbamId) - skipping")
+                        return@withLock null
+                    }
 
                     element.scrollIntoViewIfNeeded()
 
@@ -150,10 +155,10 @@ class ScreenshotService {
                         page.waitForFunction(
                             "(el) => el.querySelector('canvas, svg, .bar, [class*=\"bar\"]') !== null",
                             element,
-                            Page.WaitForFunctionOptions().setTimeout(5_000.0),
+                            Page.WaitForFunctionOptions().setTimeout(3_500.0),
                         )
                     }
-                    page.waitForTimeout(500.0)
+                    page.waitForTimeout(300.0)
 
                     val bytes = element.screenshot()
                     if (bytes == null || bytes.size < 2_000) {
@@ -192,7 +197,7 @@ class ScreenshotService {
             PERCENTILE_HEADING_SELECTOR,
             Page.WaitForSelectorOptions()
                 .setState(WaitForSelectorState.ATTACHED)
-                .setTimeout(20_000.0),
+                .setTimeout(14_000.0),
         )
 
         val heading = page.querySelector(PERCENTILE_HEADING_SELECTOR) ?: return@runCatching null
@@ -228,7 +233,7 @@ class ScreenshotService {
                 sel,
                 Page.WaitForSelectorOptions()
                     .setState(WaitForSelectorState.ATTACHED)
-                    .setTimeout(5_000.0),
+                    .setTimeout(4_000.0),
             )
             page.querySelector(sel)
         }.getOrElse { null }

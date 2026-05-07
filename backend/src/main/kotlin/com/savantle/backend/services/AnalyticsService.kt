@@ -7,12 +7,19 @@ import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 @Service
 class AnalyticsService(private val repository: AnalyticsRepository) {
     private val log = LoggerFactory.getLogger(AnalyticsService::class.java)
 
     companion object {
+        /** MLB-centric analytics day rolls at midnight Eastern (handles EST/EDT). */
+        private val ANALYTICS_ZONE: ZoneId = ZoneId.of("America/New_York")
+
+        fun analyticsDate(): LocalDate = ZonedDateTime.now(ANALYTICS_ZONE).toLocalDate()
+
         val ALLOWED_EVENTS =
             setOf(
                 "UNIQUE_VISITORS", "GAME_WON", "GAME_LOST",
@@ -24,7 +31,7 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
     @Transactional
     fun record(eventType: String) {
         require(eventType in ALLOWED_EVENTS) { "Unknown event type: $eventType" }
-        val today = LocalDate.now()
+        val today = analyticsDate()
         val updated = repository.increment(today, eventType)
         if (updated == 0) {
             try {
@@ -60,7 +67,7 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
     }
 
     fun getSummaryResponse(days: Int): ResponseEntity<Any> {
-        val end = LocalDate.now()
+        val end = analyticsDate()
         val start = end.minusDays(days.toLong())
         return ResponseEntity.ok(getSummary(start, end))
     }

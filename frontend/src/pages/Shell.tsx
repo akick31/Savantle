@@ -8,6 +8,7 @@ import StatsModal from '../components/modals/StatsModal';
 import SettingsModal from '../components/modals/SettingsModal';
 import ContactModal from '../components/modals/ContactModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
+import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
 
 type GameMode = 'daily' | 'replay' | 'random';
 
@@ -76,6 +77,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} onUpdate={updateSettings} />
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
       <ReplayPickerModal open={replayOpen} onClose={() => setReplayOpen(false)} onSelect={handleReplaySelect} />
+      <DowntimeApologyModal />
     </div>
   );
 }

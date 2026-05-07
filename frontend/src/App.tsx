@@ -6,10 +6,11 @@ import ReplayPage from './pages/ReplayPage';
 import RandomPage from './pages/RandomPage';
 import ReplayPickerModal from './components/modals/ReplayPickerModal';
 import { recordAnalytics } from './services/api';
+import { getSavantleAnalyticsDate } from './utils/share';
 
 export default function App() {
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getSavantleAnalyticsDate();
     const sessionKey = `savantle-session-${today}`;
     if (!localStorage.getItem(sessionKey)) {
       localStorage.setItem(sessionKey, '1');
