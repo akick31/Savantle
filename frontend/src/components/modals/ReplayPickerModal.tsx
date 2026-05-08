@@ -63,7 +63,6 @@ export default function ReplayPickerModal({ open, onClose, onSelect }: ReplayPic
     const dates = Array.from(availableDates);
     const randomDate = dates[Math.floor(Math.random() * dates.length)];
     onSelect(randomDate);
-    onClose();
   }
 
   return (
@@ -134,7 +133,7 @@ export default function ReplayPickerModal({ open, onClose, onSelect }: ReplayPic
                   <button
                     key={dateStr}
                     disabled={!isAvailable}
-                    onClick={() => { onSelect(dateStr); onClose(); }}
+                    onClick={() => onSelect(dateStr)}
                     className={`
                       w-8 h-8 mx-auto rounded-full text-xs font-medium transition-colors
                       ${isToday ? 'ring-1 ring-sv-accent' : ''}

@@ -14,7 +14,7 @@ function loadStoredGame(date: string): StoredGame | null {
   try {
     const raw = localStorage.getItem(getStorageKey(date));
     if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
+  } catch { }
   return null;
 }
 

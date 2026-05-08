@@ -3,6 +3,7 @@ WORKDIR /app
 USER root
 
 RUN apt-get update && apt-get install -y \
+    tini \
     curl \
     libglib2.0-0 \
     libnss3 \
@@ -35,12 +36,22 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd -r appuser && useradd -r -g appuser -m appuser
+
 RUN npx -y playwright@1.47.0 install chromium --with-deps
 
-ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+RUN mkdir -p /home/appuser/.cache && \
+    cp -r /root/.cache/ms-playwright /home/appuser/.cache/ms-playwright && \
+    chown -R appuser:appuser /home/appuser/.cache /app
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 COPY ./build/libs/*.jar app.jar
+RUN chown appuser:appuser app.jar
+
+USER appuser
 
 EXPOSE 164
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+ENTRYPOINT ["/usr/bin/tini", "--", "java", "-jar", "app.jar"]

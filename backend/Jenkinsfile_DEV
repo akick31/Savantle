@@ -6,6 +6,7 @@ pipeline {
         CONTAINER_NAME = 'Savantle-Backend-DEV'
         DOCKERFILE = 'Dockerfile_DEV'
         APP_PROPERTIES = './src/main/resources/application.properties'
+        DB_URL = credentials('SAVANTLE_DB_URL_DEV')
         DB_USERNAME = credentials('DB_USERNAME')
         DB_PASSWORD = credentials('DB_PASSWORD')
         SAVANTLE_ADMIN_KEY = credentials('SAVANTLE_ADMIN_KEY')
@@ -51,7 +52,7 @@ pipeline {
                             server.port=164
                             server.shutdown=graceful
                             spring.lifecycle.timeout-per-shutdown-phase=30s
-                            spring.datasource.url=jdbc:mariadb://51.81.32.234:3306/savantle_dev
+                            spring.datasource.url=${env.DB_URL}
                             spring.datasource.username=${env.DB_USERNAME}
                             spring.datasource.password=${env.DB_PASSWORD}
                             spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
@@ -59,6 +60,7 @@ pipeline {
                             spring.jpa.show-sql=false
                             spring.jpa.open-in-view=false
                             cors.allowed.origins=https://dev.savantle.com
+                            management.endpoints.web.exposure.include=health
                             savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
                             spring.mail.host=smtp.gmail.com
                             spring.mail.port=587
@@ -66,12 +68,15 @@ pipeline {
                             spring.mail.password=${env.SAVANTLE_MAIL_PASSWORD}
                             spring.mail.properties.mail.smtp.auth=true
                             spring.mail.properties.mail.smtp.starttls.enable=true
-                            savantle.contact.to-email=${env.SAVANTLE_MAIL_USERNAME}
                             savantle.curator.days-ahead=7
                             savantle.curator.cron=0 0 4 * * *
                             savantle.qualification.batter-min-pa=75
                             savantle.qualification.pitcher-min-ip=15.0
                             savantle.qualification.early-season-days=30
+                            spring.cache.type=caffeine
+                            spring.cache.caffeine.spec=maximumSize=200,expireAfterWrite=25h
+                            spring.cache.cache-names=percentile-screenshots
+                            api.base-path=/api/v1/savantle
                         """.stripIndent()
 
                         writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent
@@ -93,7 +98,8 @@ pipeline {
 
         stage('Run Container') {
             steps {
-                sh "docker run --network='host' -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+                // --cap-add=SYS_ADMIN allows the Chromium sandbox to use Linux user namespaces.
+                sh "docker run --network='host' --cap-add=SYS_ADMIN -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
             }
         }
 

@@ -166,7 +166,6 @@ class MLBRosterService {
 
             if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@flatMap emptyList()
 
-            // Two-way players appear as both pitcher and batter
             if (posAbbr == "TWP") {
                 listOf(
                     MLBPlayer(mlbamId = id, fullName = name, position = "SP", throwingHand = handCode, team = team),

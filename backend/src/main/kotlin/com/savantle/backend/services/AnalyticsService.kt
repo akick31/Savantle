@@ -1,6 +1,7 @@
 package com.savantle.backend.services
 
 import com.savantle.backend.model.Analytics
+import com.savantle.backend.model.dto.AnalyticsRequest
 import com.savantle.backend.repositories.AnalyticsRepository
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
@@ -11,11 +12,10 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 @Service
-class AnalyticsService(private val repository: AnalyticsRepository) {
+class AnalyticsService(private val analyticsRepository: AnalyticsRepository) {
     private val log = LoggerFactory.getLogger(AnalyticsService::class.java)
 
     companion object {
-        /** MLB-centric analytics day rolls at midnight Eastern (handles EST/EDT). */
         private val ANALYTICS_ZONE: ZoneId = ZoneId.of("America/New_York")
 
         fun analyticsDate(): LocalDate = ZonedDateTime.now(ANALYTICS_ZONE).toLocalDate()
@@ -32,23 +32,20 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
     fun record(eventType: String) {
         require(eventType in ALLOWED_EVENTS) { "Unknown event type: $eventType" }
         val today = analyticsDate()
-        val updated = repository.increment(today, eventType)
+        val updated = analyticsRepository.increment(today, eventType)
         if (updated == 0) {
             try {
-                repository.save(Analytics(eventDate = today, eventType = eventType, count = 1))
+                analyticsRepository.save(Analytics(eventDate = today, eventType = eventType, count = 1))
             } catch (e: Exception) {
-                repository.increment(today, eventType)
+                analyticsRepository.increment(today, eventType)
             }
         }
         log.debug("Analytics recorded: $eventType")
     }
 
-    fun recordFromRequest(body: Map<String, String>): ResponseEntity<Any> {
+    fun recordFromRequest(request: AnalyticsRequest): ResponseEntity<Any> {
         return try {
-            val eventType =
-                body["eventType"]
-                    ?: return ResponseEntity.badRequest().body(mapOf("error" to "eventType required"))
-            record(eventType)
+            record(request.eventType)
             ResponseEntity.ok(mapOf("ok" to true))
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().body(mapOf("error" to e.message))
@@ -61,7 +58,7 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
         start: LocalDate,
         end: LocalDate,
     ): List<Map<String, Any>> {
-        return repository.findByEventDateBetween(start, end)
+        return analyticsRepository.findByEventDateBetween(start, end)
             .sortedWith(compareBy({ it.eventDate }, { it.eventType }))
             .map { mapOf("date" to it.eventDate.toString(), "eventType" to it.eventType, "count" to it.count) }
     }
@@ -74,7 +71,7 @@ class AnalyticsService(private val repository: AnalyticsRepository) {
 
     fun getGlobalStats(): ResponseEntity<Any> {
         val today = analyticsDate()
-        val all = repository.findByEventDateBetween(today, today)
+        val all = analyticsRepository.findByEventDateBetween(today, today)
         val byType = all.groupBy { it.eventType }.mapValues { (_, rows) -> rows.sumOf { it.count } }
 
         val wins = byType["GAME_WON"] ?: 0L
