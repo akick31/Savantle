@@ -59,8 +59,13 @@ export function useRandomGameState() {
 
       let newStatus: GameStatus = 'playing';
       let newPlayerInfo = playerInfo;
-      if (result.correct) { newStatus = 'won'; newPlayerInfo = result.playerInfo ?? null; }
-      else if (result.gameOver) { newStatus = 'lost'; newPlayerInfo = result.playerInfo ?? null; }
+      if (result.correct) {
+        newStatus = 'won';
+        newPlayerInfo = result.playerInfo ?? null;
+      } else if (result.gameOver) {
+        newStatus = 'lost';
+        newPlayerInfo = result.playerInfo ?? null;
+      }
 
       setStatus(newStatus);
       setPlayerInfo(newPlayerInfo);

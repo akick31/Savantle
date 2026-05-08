@@ -4,11 +4,15 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import java.time.LocalDate
-
-private val EARLIEST_DATE: LocalDate = LocalDate.of(2025, 1, 1)
+import java.time.format.DateTimeParseException
 
 @Service
 class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
+    companion object {
+        private val EARLIEST_DATE: LocalDate = LocalDate.of(2025, 1, 1)
+        private const val MAX_PLAYER_NAME_LENGTH = 100
+    }
+
     fun getDailyPlayer(date: String?): ResponseEntity<Any> {
         return try {
             val targetDate = if (date != null) parseAndValidateDate(date) else LocalDate.now()
@@ -25,9 +29,7 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
     fun getScreenshot(date: String): ResponseEntity<ByteArray> {
         return try {
             val target = parseAndValidateDate(date)
-            val bytes =
-                dailyPlayerService.getScreenshot(target)
-                    ?: return ResponseEntity.notFound().build()
+            val bytes = dailyPlayerService.getScreenshot(target) ?: return ResponseEntity.notFound().build()
             ResponseEntity.ok(bytes)
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().build()
@@ -39,9 +41,7 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
     fun getLiveScreenshot(date: String): ResponseEntity<ByteArray> {
         return try {
             val target = parseAndValidateDate(date)
-            val bytes =
-                dailyPlayerService.getLiveScreenshot(target)
-                    ?: return ResponseEntity.notFound().build()
+            val bytes = dailyPlayerService.getLiveScreenshot(target) ?: return ResponseEntity.notFound().build()
             ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(bytes)
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().build()
@@ -64,49 +64,13 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
         guessNumber: Int,
     ): ResponseEntity<Any> {
         if (playerName.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Player name is required"))
+        if (playerName.length > MAX_PLAYER_NAME_LENGTH) return ResponseEntity.badRequest().body(mapOf("error" to "Player name too long"))
         if (guessNumber < 1 || guessNumber > 5) return ResponseEntity.badRequest().body(mapOf("error" to "Invalid guess number"))
         return try {
             val targetDate = if (date != null) parseAndValidateDate(date) else LocalDate.now()
             ResponseEntity.ok(dailyPlayerService.validateGuess(playerName, targetDate, guessNumber))
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().body(mapOf("error" to (e.message ?: "Invalid date")))
-        } catch (e: Exception) {
-            ResponseEntity.internalServerError().body(mapOf("error" to "Failed to process guess"))
-        }
-    }
-
-    fun createRandomGame(): ResponseEntity<Any> {
-        return try {
-            ResponseEntity.ok(dailyPlayerService.createRandomGame())
-        } catch (e: IllegalStateException) {
-            ResponseEntity.status(503).body(mapOf("error" to e.message))
-        } catch (e: Exception) {
-            ResponseEntity.internalServerError().body(mapOf("error" to "Failed to create random game"))
-        }
-    }
-
-    fun getRandomGameScreenshot(gameId: String): ResponseEntity<ByteArray> {
-        return try {
-            val bytes = dailyPlayerService.getRandomGameScreenshot(gameId)
-            ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(bytes)
-        } catch (e: IllegalArgumentException) {
-            ResponseEntity.notFound().build()
-        } catch (e: Exception) {
-            ResponseEntity.internalServerError().build()
-        }
-    }
-
-    fun validateRandomGuess(
-        gameId: String,
-        playerName: String,
-        guessNumber: Int,
-    ): ResponseEntity<Any> {
-        if (playerName.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Player name required"))
-        if (guessNumber < 1 || guessNumber > 5) return ResponseEntity.badRequest().body(mapOf("error" to "Invalid guess number"))
-        return try {
-            ResponseEntity.ok(dailyPlayerService.validateRandomGuess(gameId, playerName, guessNumber))
-        } catch (e: IllegalArgumentException) {
-            ResponseEntity.badRequest().body(mapOf("error" to e.message))
         } catch (e: Exception) {
             ResponseEntity.internalServerError().body(mapOf("error" to "Failed to process guess"))
         }
@@ -130,15 +94,23 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
         }
     }
 
-    fun curatePlayerForDate(
+    fun curateAutoForDate(
         date: String,
-        playerName: String,
+        playerName: String? = null,
     ): ResponseEntity<Any> {
         if (date.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Date is required"))
-        if (playerName.isBlank()) return ResponseEntity.badRequest().body(mapOf("error" to "Player name is required"))
+        if (playerName != null && playerName.length > MAX_PLAYER_NAME_LENGTH) return ResponseEntity.badRequest().body(mapOf("error" to "Player name too long"))
         return try {
             val targetDate = LocalDate.parse(date)
-            ResponseEntity.ok(dailyPlayerService.curateSpecificPlayerForDate(targetDate, playerName))
+            val result =
+                if (playerName.isNullOrBlank()) {
+                    dailyPlayerService.curateAutoForDate(targetDate)
+                } else {
+                    dailyPlayerService.curateSpecificPlayerForDate(targetDate, playerName)
+                }
+            ResponseEntity.ok(result)
+        } catch (e: DateTimeParseException) {
+            ResponseEntity.badRequest().body(mapOf("error" to "Invalid date format: $date"))
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().body(mapOf("error" to (e.message ?: "Invalid request")))
         } catch (e: IllegalStateException) {
@@ -153,7 +125,7 @@ class GameResponseService(private val dailyPlayerService: DailyPlayerService) {
             runCatching { LocalDate.parse(date) }
                 .getOrElse { throw IllegalArgumentException("Invalid date format: $date") }
         require(parsed >= EARLIEST_DATE) { "Date is before the earliest available game" }
-        require(parsed <= LocalDate.now().plusDays(8)) { "Date is in the future" }
+        require(parsed <= LocalDate.now()) { "Date is in the future" }
         return parsed
     }
 }

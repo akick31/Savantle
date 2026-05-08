@@ -16,7 +16,7 @@ export default function App() {
       localStorage.setItem(sessionKey, '1');
       recordAnalytics('UNIQUE_VISITORS');
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Routes>

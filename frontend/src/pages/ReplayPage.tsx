@@ -29,7 +29,7 @@ export default function ReplayPage() {
   const isLoading = replayState.status === 'loading' && !replayState.error;
   const isFinished = replayState.status === 'won' || replayState.status === 'lost';
 
-  if (!date) { navigate('/'); return null; }
+  if (!date || date > new Date().toISOString().slice(0, 10)) { navigate('/'); return null; }
   if (isLoading) return <LoadingScreen error={null} />;
   if (replayState.error && replayState.status === 'loading') return <LoadingScreen error={replayState.error} />;
 

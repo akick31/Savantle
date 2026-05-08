@@ -23,7 +23,7 @@ export function getLocalDate(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function calculateSaventleNumber(date: string): number {
+export function calculateSavantleNumber(date: string): number {
   const [year, month, day] = date.split('-').map(Number);
   const gameDate = new Date(year, month - 1, day);
   const daysSinceLaunch = Math.floor((gameDate.getTime() - LAUNCH_DATE.getTime()) / (1000 * 60 * 60 * 24));
@@ -34,7 +34,7 @@ export function buildShareText(
   status: GameStatus,
   guessCount: number,
   currentStreak: number = 0,
-  saventleNumber: number = 1,
+  savantleNumber: number = 1,
 ): string {
   const guesses = status === 'won' ? guessCount : 5;
   const emoji = Array.from({ length: 5 }, (_, i) => {
@@ -46,5 +46,5 @@ export function buildShareText(
   const result = status === 'won' ? `${guessCount}/5` : 'X/5';
   const streakLine = currentStreak > 0 ? `\nWinning streak: ${currentStreak}` : '';
 
-  return `Savantle | #${saventleNumber}\n${emoji} ${result}${streakLine}`;
+  return `Savantle | #${savantleNumber}\n${emoji} ${result}${streakLine}`;
 }

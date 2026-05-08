@@ -11,10 +11,12 @@ import com.savantle.backend.model.ScreenshotResult
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import java.text.Normalizer
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.random.Random
 
 @Service
 class ScreenshotService {
@@ -27,12 +29,12 @@ class ScreenshotService {
                 ".stat-percentile-wrapper",
                 "#player-percentile",
             )
+
         private const val PERCENTILE_HEADING_SELECTOR =
             "text=/\\d{4}\\s+MLB\\s+Percentile\\s+Rankings|MLB\\s+Percentile\\s+Rankings/i"
 
         private val BLOCKED_RESOURCE_TYPES = setOf("media", "websocket")
 
-        // Block third-party domains (ads, analytics, tracking)
         private val BLOCKED_URL_PATTERNS =
             listOf(
                 "google-analytics", "googletagmanager", "doubleclick",
@@ -40,6 +42,18 @@ class ScreenshotService {
                 "omtrdc", "demdex", "krxd", "chartbeat", "quantserve",
                 "cdn.cookielaw", "onetrust", "bat.bing",
             )
+
+        private const val POLITE_DELAY_MIN_MS = 1_500L
+        private const val POLITE_DELAY_MAX_MS = 3_000L
+
+        /**
+         * Identifies this bot to Baseball Savant admins. The sandbox must remain enabled so that
+         * Chromium's process isolation protects the host — Docker containers need --cap-add=SYS_ADMIN
+         * (or a permissive seccomp profile) for the Linux user-namespace sandbox to function.
+         */
+        private const val USER_AGENT =
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 BoxScoreBot/1.0; +contact@savantle.com"
     }
 
     private val log = LoggerFactory.getLogger(ScreenshotService::class.java)
@@ -47,7 +61,7 @@ class ScreenshotService {
     private var playwright: Playwright? = null
     private var browser: Browser? = null
 
-    /** Playwright route/context handling is not safe under concurrent use on one browser. */
+    /** Route/context handling is not thread-safe across a shared browser instance. */
     private val captureLock = ReentrantLock()
 
     @PostConstruct
@@ -60,7 +74,6 @@ class ScreenshotService {
                         .setHeadless(true)
                         .setArgs(
                             listOf(
-                                "--no-sandbox",
                                 "--disable-dev-shm-usage",
                                 "--disable-extensions",
                                 "--disable-gpu",
@@ -71,7 +84,7 @@ class ScreenshotService {
                             ),
                         ),
                 )
-            log.info("Playwright Chromium initialized (fresh context per capture, serialized)")
+            log.info("Playwright Chromium initialized (sandbox enabled, fresh context per capture)")
         } catch (e: Exception) {
             log.error("Failed to initialize Playwright", e)
         }
@@ -79,39 +92,20 @@ class ScreenshotService {
 
     @PreDestroy
     fun shutdown() {
-        runCatching { browser?.close() }
-        runCatching { playwright?.close() }
-    }
-
-    private fun createContext(): BrowserContext {
-        val ctx =
-            browser!!.newContext(
-                Browser.NewContextOptions()
-                    .setViewportSize(1280, 1600)
-                    .setUserAgent(
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                    )
-                    .setJavaScriptEnabled(true),
-            )
-        ctx.route("**/*") { route ->
-            val req = runCatching { route.request() }.getOrNull()
-            if (req == null) {
-                runCatching { route.resume() }
-                return@route
-            }
-            val type = req.resourceType()
-            val url = req.url()
-            if (type in BLOCKED_RESOURCE_TYPES ||
-                BLOCKED_URL_PATTERNS.any { url.contains(it, ignoreCase = true) }
-            ) {
-                route.abort()
-            } else {
-                route.resume()
-            }
+        log.info("Shutting down Playwright")
+        captureLock.withLock {
+            runCatching { browser?.close() }.onFailure { log.warn("Browser close error: ${it.message}") }
+            runCatching { playwright?.close() }.onFailure { log.warn("Playwright close error: ${it.message}") }
+            browser = null
+            playwright = null
         }
-        return ctx
     }
 
+    @Cacheable(
+        cacheNames = ["percentile-screenshots"],
+        key = "#mlbamId + ':' + T(java.time.LocalDate).now().toString()",
+        unless = "#result == null",
+    )
     fun capturePercentiles(
         mlbamId: Int,
         fullName: String,
@@ -126,6 +120,8 @@ class ScreenshotService {
                 log.warn("Browser not initialized")
                 return@withLock null
             }
+
+            Thread.sleep(Random.nextLong(POLITE_DELAY_MIN_MS, POLITE_DELAY_MAX_MS))
 
             val context = createContext()
             try {
@@ -144,6 +140,7 @@ class ScreenshotService {
                     val element =
                         findPercentileContainerByHeading(page, fullName, mlbamId)
                             ?: findPercentileContainerByFallbackSelectors(page, fullName, mlbamId)
+
                     if (element == null) {
                         log.warn("No percentile section found for $fullName ($mlbamId) - skipping")
                         return@withLock null
@@ -177,6 +174,33 @@ class ScreenshotService {
                 runCatching { context.close() }
             }
         }
+    }
+
+    private fun createContext(): BrowserContext {
+        val ctx =
+            browser!!.newContext(
+                Browser.NewContextOptions()
+                    .setViewportSize(1280, 1600)
+                    .setUserAgent(USER_AGENT)
+                    .setJavaScriptEnabled(true),
+            )
+        ctx.route("**/*") { route ->
+            val req = runCatching { route.request() }.getOrNull()
+            if (req == null) {
+                runCatching { route.resume() }
+                return@route
+            }
+            val type = req.resourceType()
+            val url = req.url()
+            if (type in BLOCKED_RESOURCE_TYPES ||
+                BLOCKED_URL_PATTERNS.any { url.contains(it, ignoreCase = true) }
+            ) {
+                route.abort()
+            } else {
+                route.resume()
+            }
+        }
+        return ctx
     }
 
     private fun toSlug(name: String): String {
