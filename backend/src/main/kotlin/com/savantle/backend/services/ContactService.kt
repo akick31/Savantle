@@ -10,8 +10,7 @@ import org.springframework.stereotype.Service
 @Service
 class ContactService(
     private val mailSender: JavaMailSender,
-    @Value("\${savantle.contact.to-email}") private val toEmail: String,
-    @Value("\${spring.mail.username}") private val fromEmail: String,
+    @Value("\${spring.mail.username}") private val mailUsername: String,
 ) {
     private val log = LoggerFactory.getLogger(ContactService::class.java)
 
@@ -43,8 +42,8 @@ class ContactService(
         require(message.isNotBlank()) { "Message is required" }
 
         val mail = SimpleMailMessage()
-        mail.setTo(toEmail)
-        mail.setFrom(fromEmail)
+        mail.setTo(mailUsername)
+        mail.setFrom(mailUsername)
         mail.replyTo = email
         mail.subject = "[Savantle] $subject"
         mail.text =

@@ -96,9 +96,8 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
   }, []);
 
   return (
-    <div className="space-y-2">
-      <div className="relative">
-        <div className="flex gap-2">
+    <div className="relative">
+      <div className="flex gap-2">
           <div className="relative flex-1">
             <input
               ref={inputRef}
@@ -149,7 +148,6 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
         <p className="text-xs text-sv-muted mt-1.5">
           Full name required · Accents optional
         </p>
-      </div>
     </div>
   );
 }

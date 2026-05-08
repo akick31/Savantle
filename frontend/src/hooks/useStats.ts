@@ -14,7 +14,7 @@ function loadStats(): PlayerStats {
   try {
     const raw = localStorage.getItem(STATS_KEY);
     if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
+  } catch { }
   return {
     currentStreak: 0,
     maxStreak: 0,

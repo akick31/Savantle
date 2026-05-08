@@ -9,9 +9,7 @@ import ContactModal from '../components/modals/ContactModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
 import GlobalStatsModal from '../components/modals/GlobalStatsModal';
 import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
-
-type GameMode = 'daily' | 'replay' | 'random';
-type ModalId = 'how-to-play' | 'stats' | 'global-stats' | 'settings' | 'contact' | 'replay-picker';
+import { GameMode, ModalId } from '../types';
 
 interface ShellProps {
   gameMode: GameMode;
