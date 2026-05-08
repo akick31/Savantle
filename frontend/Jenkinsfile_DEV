@@ -1,0 +1,85 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'savantle-frontend-dev'
+        CONTAINER_NAME = 'Savantle-Frontend-DEV'
+        DOCKERFILE = 'Dockerfile_DEV'
+        DOCKER_BUILDKIT = '1'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out the Savantle Frontend project...'
+                checkout scm
+            }
+        }
+
+        stage('Get Version') {
+            steps {
+                script {
+                    def latestTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0'", returnStdout: true).trim()
+                    env.VERSION = latestTag
+                    currentBuild.description = "Version: ${env.VERSION}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - Version: ${env.VERSION}"
+                }
+            }
+        }
+
+        stage('Generate .env File') {
+            steps {
+                dir('frontend') {
+                    sh """
+                        cat <<EOF > .env
+                        VITE_API_BASE_URL=https://dev.api.savantle.com/api/v1/savantle
+                        EOF
+                    """
+                }
+            }
+        }
+
+        stage('Stop and Remove Existing Container') {
+            steps {
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('frontend') {
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:latest ."
+                }
+            }
+        }
+
+        stage('Run New Container') {
+            steps {
+                sh """
+                    docker run -d --name ${CONTAINER_NAME} \
+                        -p 921:921 \
+                        --env-file frontend/.env \
+                        --restart=always \
+                        ${IMAGE_NAME}:latest
+                """
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh 'rm -f frontend/.env'
+                sh 'docker system prune -f'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Savantle Frontend DEV deployed successfully!'
+        }
+        failure {
+            echo 'Savantle Frontend DEV deployment failed.'
+        }
+    }
+}

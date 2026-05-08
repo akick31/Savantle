@@ -13,10 +13,13 @@ import org.springframework.stereotype.Component
 @Component
 @Order(1)
 class CorsFilter(
-    @Value("\${cors.allowed.origins}") private val allowedOrigins: String
+    @Value("\${cors.allowed.origins}") private val allowedOrigins: String,
 ) : Filter {
-
-    override fun doFilter(request: ServletRequest, response: ServletResponse, chain: FilterChain) {
+    override fun doFilter(
+        request: ServletRequest,
+        response: ServletResponse,
+        chain: FilterChain,
+    ) {
         val httpRequest = request as HttpServletRequest
         val httpResponse = response as HttpServletResponse
         val origin = httpRequest.getHeader("Origin")
@@ -25,7 +28,7 @@ class CorsFilter(
             httpResponse.setHeader("Access-Control-Allow-Origin", origin)
         }
         httpResponse.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        httpResponse.setHeader("Access-Control-Allow-Headers", "Content-Type")
+        httpResponse.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key")
         httpResponse.setHeader("Access-Control-Max-Age", "3600")
 
         if ("OPTIONS" == httpRequest.method) {

@@ -1,0 +1,178 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'savantle-frontend-prd'
+        CONTAINER_NAME = 'Savantle-Frontend-PRD'
+        CONTAINER_NAME_BLUE = 'Savantle-Frontend-PRD-BLUE'
+        /** Host port for blue only; prod stays on 999 so blue must not bind 999 while prod runs. */
+        BLUE_HOST_PORT = '11999'
+        DOCKERFILE = 'Dockerfile_PRD'
+        DOCKER_BUILDKIT = '1'
+        GITHUB_PAT = credentials('Github PAT')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out the Savantle Frontend project...'
+                checkout scm
+            }
+        }
+
+        stage('Bump Version & Tag') {
+            when { branch 'main' }
+            steps {
+                script {
+                    def latestTag = sh(
+                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
+                        returnStdout: true
+                    ).trim()
+                    def version = latestTag.replaceFirst(/^v/, '')
+                    def parts   = version.tokenize('.')
+                    def major   = parts[0].toInteger()
+                    def minor   = parts[1].toInteger()
+                    def patch   = parts[2].toInteger()
+
+                    def msg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    if (msg.contains('[major]')) {
+                        major++; minor = 0; patch = 0
+                    } else if (msg.contains('[minor]')) {
+                        minor++; patch = 0
+                    } else {
+                        patch++
+                    }
+
+                    def newVersion = "v${major}.${minor}.${patch}"
+                    sh """
+                        git config user.email "jenkins@boxscore.build"
+                        git config user.name  "Jenkins"
+                        git tag -a ${newVersion} -m "Auto-release ${newVersion} [build ${env.BUILD_NUMBER}]"
+                        git push https://${env.GITHUB_PAT_USR}:${env.GITHUB_PAT_PSW}@github.com/\$(git remote get-url origin | sed 's|.*github.com[:/]||') ${newVersion}
+                    """
+                    env.VERSION = newVersion
+                    currentBuild.description = "Version: ${newVersion}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${newVersion}"
+                }
+            }
+        }
+
+        stage('Get Version') {
+            when { not { branch 'main' } }
+            steps {
+                script {
+                    def latestTag = sh(
+                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
+                        returnStdout: true
+                    ).trim()
+                    env.VERSION = latestTag
+                    currentBuild.description = "Version: ${latestTag}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${latestTag}"
+                }
+            }
+        }
+
+        stage('Generate .env File') {
+            steps {
+                dir('frontend') {
+                    sh """
+                        cat <<EOF > .env
+                        VITE_API_BASE_URL=https://api.savantle.com/api/v1/savantle
+                        EOF
+                    """
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('frontend') {
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:latest ."
+                }
+            }
+        }
+
+        stage('Start Blue Container') {
+            steps {
+                sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                sh """
+                    docker run -d --name ${CONTAINER_NAME_BLUE} \\
+                        -p ${env.BLUE_HOST_PORT}:999 \\
+                        --env-file frontend/.env \\
+                        ${IMAGE_NAME}:latest
+                """
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    sleep(time: 10, unit: 'SECONDS')
+                    def healthy = false
+                    def attempts = 0
+                    def maxAttempts = 24
+                    while (!healthy && attempts < maxAttempts) {
+                        attempts++
+                        try {
+                            def status = sh(
+                                script: "docker exec ${env.CONTAINER_NAME_BLUE} wget -q -O /dev/null http://127.0.0.1:999/ && echo OK || echo FAIL",
+                                returnStdout: true
+                            ).trim()
+                            if (status == 'OK') {
+                                healthy = true
+                                echo "New container is healthy (attempt ${attempts})"
+                            }
+                        } catch (e) {
+                            // not ready yet
+                        }
+                        if (!healthy) {
+                            echo "Waiting for health check... attempt ${attempts}/${maxAttempts}"
+                            sleep 5
+                        }
+                    }
+                    if (!healthy) {
+                        sh "docker logs ${CONTAINER_NAME_BLUE} --tail=50"
+                        sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                        error("New container failed to become healthy after ${maxAttempts * 5}s - rolled back")
+                    }
+                }
+            }
+        }
+
+        stage('Swap Containers') {
+            steps {
+                sh """
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+                    docker stop ${CONTAINER_NAME_BLUE} || true
+                    docker rm ${CONTAINER_NAME_BLUE} || true
+                """
+                dir('frontend') {
+                    sh """
+                        docker run -d --restart=always --name ${CONTAINER_NAME} \\
+                            -p 999:999 \\
+                            --env-file .env \\
+                            ${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh 'rm -f frontend/.env'
+                sh 'docker system prune -f'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Savantle Frontend PRD deployed successfully!'
+        }
+        failure {
+            sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+            echo 'Savantle Frontend PRD deployment failed.'
+        }
+    }
+}

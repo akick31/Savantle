@@ -2,8 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('/PressStart2P-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 :root {
-  /* Dark mode (default) — deep forest green */
+  /* Dark mode (default) - deep forest green */
   --sv-bg: #0a1f0e;
   --sv-card: #132a18;
   --sv-accent: #4ade80;
@@ -86,4 +93,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s, color 0.2s;
+}
+
+.font-pixel {
+  font-family: 'Press Start 2P', monospace !important;
+  image-rendering: pixelated;
+  -moz-osx-font-smoothing: grayscale;
 }

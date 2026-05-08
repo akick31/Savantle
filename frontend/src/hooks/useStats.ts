@@ -1,11 +1,8 @@
 import { useState, useCallback } from 'react';
 import { PlayerStats } from '../types';
+import { getLocalDate } from '../utils/share';
 
 const STATS_KEY = 'savantle-stats';
-
-function getLocalDate(date: Date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function getYesterday(): string {
   const d = new Date();
@@ -17,7 +14,7 @@ function loadStats(): PlayerStats {
   try {
     const raw = localStorage.getItem(STATS_KEY);
     if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
+  } catch { }
   return {
     currentStreak: 0,
     maxStreak: 0,
@@ -31,25 +28,28 @@ function loadStats(): PlayerStats {
 export function useStats() {
   const [stats, setStats] = useState<PlayerStats>(loadStats);
 
-  const recordGame = useCallback((won: boolean, guessCount: number) => {
-    const today = getLocalDate();
+  const recordGame = useCallback((won: boolean, guessCount: number, gameDate?: string) => {
+    const date = gameDate ?? getLocalDate();
     const current = loadStats();
 
-    if (current.lastPlayedDate === today) return current;
+    if (current.lastPlayedDate === date) return current;
 
-    const newStreak = current.lastPlayedDate === getYesterday()
-      ? current.currentStreak + (won ? 1 : 0)
+    const yesterday = getYesterday();
+    const newStreak = (current.lastPlayedDate === yesterday && won)
+      ? current.currentStreak + 1
       : won ? 1 : 0;
 
     const dist = { ...current.guessDistribution };
-    if (won) dist[guessCount] = (dist[guessCount] ?? 0) + 1;
+    if (won && guessCount >= 1 && guessCount <= 5) {
+      dist[guessCount] = (dist[guessCount] ?? 0) + 1;
+    }
 
     const updated: PlayerStats = {
       currentStreak: newStreak,
       maxStreak: Math.max(current.maxStreak, newStreak),
       gamesPlayed: current.gamesPlayed + 1,
       gamesWon: current.gamesWon + (won ? 1 : 0),
-      lastPlayedDate: today,
+      lastPlayedDate: date,
       guessDistribution: dist,
     };
 

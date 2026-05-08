@@ -1,0 +1,205 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'savantle-backend-prd'
+        CONTAINER_NAME = 'Savantle-Backend-PRD'
+        CONTAINER_NAME_BLUE = 'Savantle-Backend-PRD-BLUE'
+        /** Host port for blue only; prod uses --network host on 163 so blue must not publish 163:163 while prod runs. */
+        BLUE_HOST_PORT = '1164'
+        DOCKERFILE = 'Dockerfile_PRD'
+        APP_PROPERTIES = './src/main/resources/application.properties'
+        DB_URL = credentials('SAVANTLE_DB_URL_PRD')
+        DB_USERNAME = credentials('DB_USERNAME')
+        DB_PASSWORD = credentials('DB_PASSWORD')
+        SAVANTLE_ADMIN_KEY = credentials('SAVANTLE_ADMIN_KEY')
+        SAVANTLE_MAIL_USERNAME = credentials('SAVANTLE_MAIL_USERNAME')
+        SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
+        JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
+        PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
+        GRADLE_USER_HOME = "${env.WORKSPACE}/.gradle"
+        DOCKER_BUILDKIT = '1'
+        GITHUB_PAT = credentials('Github PAT')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out the Savantle Backend project...'
+                checkout scm
+            }
+        }
+
+        stage('Bump Version & Tag') {
+            when { branch 'main' }
+            steps {
+                script {
+                    def latestTag = sh(
+                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
+                        returnStdout: true
+                    ).trim()
+                    def version = latestTag.replaceFirst(/^v/, '')
+                    def parts   = version.tokenize('.')
+                    def major   = parts[0].toInteger()
+                    def minor   = parts[1].toInteger()
+                    def patch   = parts[2].toInteger()
+
+                    def msg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    if (msg.contains('[major]')) {
+                        major++; minor = 0; patch = 0
+                    } else if (msg.contains('[minor]')) {
+                        minor++; patch = 0
+                    } else {
+                        patch++
+                    }
+
+                    def newVersion = "v${major}.${minor}.${patch}"
+                    sh """
+                        git config user.email "jenkins@boxscore.build"
+                        git config user.name  "Jenkins"
+                        git tag -a ${newVersion} -m "Auto-release ${newVersion} [build ${env.BUILD_NUMBER}]"
+                        git push https://${env.GITHUB_PAT_USR}:${env.GITHUB_PAT_PSW}@github.com/\$(git remote get-url origin | sed 's|.*github.com[:/]||') ${newVersion}
+                    """
+                    env.VERSION = newVersion
+                    currentBuild.description = "Version: ${newVersion}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${newVersion}"
+                }
+            }
+        }
+
+        stage('Get Version') {
+            when { not { branch 'main' } }
+            steps {
+                script {
+                    def latestTag = sh(
+                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
+                        returnStdout: true
+                    ).trim()
+                    env.VERSION = latestTag
+                    currentBuild.description = "Version: ${latestTag}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${latestTag}"
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('backend') {
+                    script {
+                        def propertiesContent = """
+                            server.port=163
+                            server.shutdown=graceful
+                            spring.lifecycle.timeout-per-shutdown-phase=30s
+                            spring.datasource.url=${env.DB_URL}
+                            spring.datasource.username=${env.DB_USERNAME}
+                            spring.datasource.password=${env.DB_PASSWORD}
+                            spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+                            spring.jpa.hibernate.ddl-auto=update
+                            spring.jpa.show-sql=false
+                            spring.jpa.open-in-view=false
+                            spring.jackson.property-naming-strategy=SNAKE_CASE
+                            cors.allowed.origins=https://savantle.com
+                            management.endpoints.web.exposure.include=health
+                            savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
+                            spring.mail.host=smtp.gmail.com
+                            spring.mail.port=587
+                            spring.mail.username=${env.SAVANTLE_MAIL_USERNAME}
+                            spring.mail.password=${env.SAVANTLE_MAIL_PASSWORD}
+                            spring.mail.properties.mail.smtp.auth=true
+                            spring.mail.properties.mail.smtp.starttls.enable=true
+                            savantle.curator.days-ahead=7
+                            savantle.curator.cron=0 0 4 * * *
+                            savantle.qualification.batter-min-pa=75
+                            savantle.qualification.pitcher-min-ip=10.0
+                            savantle.qualification.early-season-days=30
+                            spring.cache.type=caffeine
+                            spring.cache.caffeine.spec=maximumSize=200,expireAfterWrite=25h
+                            spring.cache.cache-names=percentile-screenshots
+                            api.base-path=/api/v1/savantle
+                        """.stripIndent()
+
+                        writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent
+                    }
+                    sh 'chmod +x gradlew || true'
+                    sh './gradlew --stop || true'
+                    sh './gradlew clean build -x test'
+                }
+            }
+        }
+
+        stage('Build New Docker Image') {
+            steps {
+                dir('backend') {
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:${DOCKERFILE} ."
+                }
+            }
+        }
+
+        stage('Start Blue Container') {
+            steps {
+                sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                // --cap-add=SYS_ADMIN allows the Chromium sandbox to use Linux user namespaces.
+                sh "docker run -d --cap-add=SYS_ADMIN --name ${CONTAINER_NAME_BLUE} -p ${env.BLUE_HOST_PORT}:163 ${IMAGE_NAME}:${DOCKERFILE}"
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    sleep(time: 40, unit: 'SECONDS')
+                    def healthy = false
+                    def attempts = 0
+                    def maxAttempts = 30
+                    while (!healthy && attempts < maxAttempts) {
+                        attempts++
+                        try {
+                            // Jenkins often runs inside Docker: localhost:164 here is the Jenkins container, not the
+                            // host where -p 164:163 is published. Probe the app from inside the blue container instead.
+                            def status = sh(
+                                script: "docker exec ${env.CONTAINER_NAME_BLUE} curl -sf --max-time 15 http://127.0.0.1:163/actuator/health -o /dev/null && echo OK || echo FAIL",
+                                returnStdout: true
+                            ).trim()
+                            if (status == 'OK') {
+                                healthy = true
+                                echo "New container is healthy (attempt ${attempts}, after initial wait + retries)"
+                            }
+                        } catch (e) {
+                            // not ready yet
+                        }
+                        if (!healthy) {
+                            echo "Waiting for health check... attempt ${attempts}/${maxAttempts}"
+                            sleep 5
+                        }
+                    }
+                    if (!healthy) {
+                        sh "docker logs ${CONTAINER_NAME_BLUE} --tail=50"
+                        sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+                        error("New container failed to become healthy after ${maxAttempts * 5}s - rolled back")
+                    }
+                }
+            }
+        }
+
+        stage('Swap Containers') {
+            steps {
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+                sh "docker stop ${CONTAINER_NAME_BLUE} || true"
+                sh "docker rm ${CONTAINER_NAME_BLUE} || true"
+                sh "docker run --network='host' --cap-add=SYS_ADMIN -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh 'docker system prune -f'
+            }
+        }
+    }
+
+    post {
+        failure {
+            sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
+        }
+    }
+}
