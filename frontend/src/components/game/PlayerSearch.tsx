@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { PlayerSearchItem } from '../types';
-import { normalizeForSearch } from '../utils/normalize';
+import { PlayerSearchItem } from '../../types';
+import { normalizeForSearch } from '../../utils/normalize';
 
 interface PlayerSearchProps {
   players: PlayerSearchItem[];
+  playerType: 'BATTER' | 'PITCHER';
   onSubmit: (name: string) => void;
   disabled: boolean;
-  guessNumber: number;
 }
 
-export default function PlayerSearch({ players, onSubmit, disabled, guessNumber }: PlayerSearchProps) {
+export default function PlayerSearch({ players, playerType, onSubmit, disabled }: PlayerSearchProps) {
+  const filteredPlayers = players.filter(p => p.playerType === playerType);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<PlayerSearchItem[]>([]);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -20,10 +21,10 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
   const getSuggestions = useCallback((q: string): PlayerSearchItem[] => {
     if (q.length < 2) return [];
     const norm = normalizeForSearch(q);
-    return players
+    return filteredPlayers
       .filter(p => p.normalizedName.includes(norm))
       .slice(0, 8);
-  }, [players]);
+  }, [filteredPlayers]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -46,9 +47,8 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
     const trimmed = query.trim();
     if (!trimmed) return;
 
-    // Require a full name match from the player list
     const norm = normalizeForSearch(trimmed);
-    const match = players.find(p => p.normalizedName === norm);
+    const match = filteredPlayers.find(p => p.normalizedName === norm);
     if (!match) {
       inputRef.current?.setCustomValidity('Please select a valid player from the list.');
       inputRef.current?.reportValidity();
@@ -82,7 +82,6 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
     }
   };
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -97,9 +96,8 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
   }, []);
 
   return (
-    <div className="space-y-2">
-      <div className="relative">
-        <div className="flex gap-2">
+    <div className="relative">
+      <div className="flex gap-2">
           <div className="relative flex-1">
             <input
               ref={inputRef}
@@ -110,15 +108,16 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
               onFocus={() => { if (suggestions.length > 0) setShowDropdown(true); }}
               disabled={disabled}
               placeholder="Enter full player name (e.g., Aaron Judge)"
-              className="w-full bg-sv-card border border-sv-border rounded-lg px-4 py-2.5 text-sv-text placeholder-sv-muted text-sm focus:outline-none focus:border-sv-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-sv-card border border-sv-border rounded-lg px-4 py-2.5 text-sv-text placeholder-sv-muted text-sm focus:outline-none focus:border-sv-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-sm"
               autoComplete="off"
               spellCheck={false}
+              style={{ fontSize: '16px' }}
             />
 
             {showDropdown && suggestions.length > 0 && (
               <div
                 ref={dropdownRef}
-                className="absolute z-20 top-full left-0 right-0 mt-1 bg-sv-card border border-sv-border rounded-lg shadow-xl overflow-hidden"
+                className="absolute z-20 left-0 right-0 bg-sv-card border border-sv-border rounded-lg shadow-xl overflow-hidden md:top-full md:mt-1 bottom-full md:bottom-auto mb-1 md:mb-0 max-h-48 overflow-y-auto"
               >
                 {suggestions.map((p, i) => (
                   <button
@@ -142,14 +141,13 @@ export default function PlayerSearch({ players, onSubmit, disabled, guessNumber 
             disabled={disabled || !query.trim()}
             className="px-4 py-2.5 bg-sv-accent text-sv-bg rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
           >
-            Guess {guessNumber}
+            Guess
           </button>
         </div>
 
         <p className="text-xs text-sv-muted mt-1.5">
-          Full name required · Accents optional (e.g., "moran" matches "Morán")
+          Full name required · Accents optional
         </p>
-      </div>
     </div>
   );
 }

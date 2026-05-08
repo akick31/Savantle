@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'savantle-backend-dev'
+        CONTAINER_NAME = 'Savantle-Backend-DEV'
+        DOCKERFILE = 'Dockerfile_DEV'
+        APP_PROPERTIES = './src/main/resources/application.properties'
+        DB_URL = credentials('SAVANTLE_DB_URL_DEV')
+        DB_USERNAME = credentials('DB_USERNAME')
+        DB_PASSWORD = credentials('DB_PASSWORD')
+        SAVANTLE_ADMIN_KEY = credentials('SAVANTLE_ADMIN_KEY')
+        SAVANTLE_MAIL_USERNAME = credentials('SAVANTLE_MAIL_USERNAME')
+        SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
+        JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
+        PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
+        GRADLE_USER_HOME = "${env.WORKSPACE}/.gradle"
+        DOCKER_BUILDKIT = '1'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out the Savantle Backend project...'
+                checkout scm
+            }
+        }
+
+        stage('Get Version') {
+            steps {
+                script {
+                    def latestTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0'", returnStdout: true).trim()
+                    env.VERSION = latestTag
+                    currentBuild.description = "Version: ${env.VERSION}"
+                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - Version: ${env.VERSION}"
+                }
+            }
+        }
+
+        stage('Stop and Remove Existing Container') {
+            steps {
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('backend') {
+                    script {
+                        def propertiesContent = """
+                            server.port=164
+                            server.shutdown=graceful
+                            spring.lifecycle.timeout-per-shutdown-phase=30s
+                            spring.datasource.url=${env.DB_URL}
+                            spring.datasource.username=${env.DB_USERNAME}
+                            spring.datasource.password=${env.DB_PASSWORD}
+                            spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+                            spring.jpa.hibernate.ddl-auto=update
+                            spring.jpa.show-sql=false
+                            spring.jpa.open-in-view=false
+                            cors.allowed.origins=https://dev.savantle.com
+                            management.endpoints.web.exposure.include=health
+                            savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
+                            spring.mail.host=smtp.gmail.com
+                            spring.mail.port=587
+                            spring.mail.username=${env.SAVANTLE_MAIL_USERNAME}
+                            spring.mail.password=${env.SAVANTLE_MAIL_PASSWORD}
+                            spring.mail.properties.mail.smtp.auth=true
+                            spring.mail.properties.mail.smtp.starttls.enable=true
+                            savantle.curator.days-ahead=7
+                            savantle.curator.cron=0 0 4 * * *
+                            savantle.qualification.batter-min-pa=75
+                            savantle.qualification.pitcher-min-ip=15.0
+                            savantle.qualification.early-season-days=30
+                            spring.cache.type=caffeine
+                            spring.cache.caffeine.spec=maximumSize=200,expireAfterWrite=25h
+                            spring.cache.cache-names=percentile-screenshots
+                            api.base-path=/api/v1/savantle
+                        """.stripIndent()
+
+                        writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent
+                    }
+                    sh 'chmod +x gradlew || true'
+                    sh './gradlew --stop || true'
+                    sh './gradlew clean build -x test'
+                }
+            }
+        }
+
+        stage('Build New Docker Image') {
+            steps {
+                dir('backend') {
+                    sh "docker build -f ${DOCKERFILE} -t ${IMAGE_NAME}:${DOCKERFILE} ."
+                }
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                // --cap-add=SYS_ADMIN allows the Chromium sandbox to use Linux user namespaces.
+                sh "docker run --network='host' --cap-add=SYS_ADMIN -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh 'docker system prune -f'
+            }
+        }
+    }
+}

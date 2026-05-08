@@ -1,17 +1,21 @@
 export type PlayerType = 'BATTER' | 'PITCHER';
 
+export type GameMode = 'daily' | 'replay' | 'random';
+
+export type ModalId = 'how-to-play' | 'stats' | 'global-stats' | 'settings' | 'contact' | 'replay-picker';
+
 export type GameStatus = 'loading' | 'playing' | 'won' | 'lost';
 
 export interface DailyData {
   date: string;
   playerType: PlayerType;
-  stats: Record<string, number>;
 }
 
 export interface HintData {
   type: 'POSITION' | 'LEAGUE' | 'DIVISION' | 'TEAM';
   label: string;
   value: string;
+  confirmed: boolean;
 }
 
 export interface PlayerInfo {
@@ -22,18 +26,26 @@ export interface PlayerInfo {
   league: string;
   division: string;
   mlbamId: string;
+  savantUrl?: string;
 }
 
 export interface GuessResult {
   correct: boolean;
   gameOver?: boolean;
-  hint?: HintData;
+  hints?: HintData[];
   playerInfo?: PlayerInfo;
 }
 
 export interface PlayerSearchItem {
   fullName: string;
   normalizedName: string;
+  playerType: PlayerType;
+  mlbamId: string;
+}
+
+export interface RandomGameData {
+  gameId: string;
+  playerType: PlayerType;
 }
 
 export interface StoredGame {
@@ -56,4 +68,11 @@ export interface PlayerStats {
 export interface Settings {
   darkMode: boolean;
   highContrast: boolean;
+}
+
+export interface GlobalStats {
+  totalWins: number;
+  totalLosses: number;
+  guessDistribution: Record<string, number>;
+  averageGuesses: number;
 }

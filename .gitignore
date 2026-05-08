@@ -1,6 +1,3 @@
-# Claude
-.claude/
-
 # Backend
 backend/build/
 backend/.gradle/
@@ -14,5 +11,6 @@ frontend/.env.local
 
 # IDE
 .idea/
+.vscode/
 *.iml
 .DS_Store

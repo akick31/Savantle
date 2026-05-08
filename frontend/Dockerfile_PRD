@@ -1,0 +1,20 @@
+# Build Stage
+FROM node:20-alpine AS build
+WORKDIR /app
+ENV NODE_OPTIONS=--max_old_space_size=1024
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Production Stage
+FROM node:20-alpine
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=build /app/dist ./dist
+
+# Updated to match your Nginx proxy_pass and Jenkins port mapping
+EXPOSE 999
+CMD ["serve", "-s", "dist", "-l", "999"]

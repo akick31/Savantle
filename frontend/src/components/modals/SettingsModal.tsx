@@ -1,5 +1,5 @@
 import Modal from './Modal';
-import { Settings } from '../types';
+import { Settings } from '../../types';
 
 interface SettingsModalProps {
   open: boolean;
