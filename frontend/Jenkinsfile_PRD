@@ -10,6 +10,7 @@ pipeline {
         DOCKERFILE = 'Dockerfile_PRD'
         DOCKER_BUILDKIT = '1'
         GITHUB_PAT = credentials('Github PAT')
+        SAVANTLE_API_URL = credentials('SAVANTLE_API_BASE_URL')
     }
 
     stages {
@@ -77,7 +78,7 @@ pipeline {
                 dir('frontend') {
                     sh """
                         cat <<EOF > .env
-                        VITE_API_BASE_URL=https://api.savantle.com/api/v1/savantle
+                        VITE_API_BASE_URL=${env.SAVANTLE_API_URL}
                         EOF
                     """
                 }
