@@ -5,7 +5,6 @@ pipeline {
         IMAGE_NAME = 'savantle-backend-prd'
         CONTAINER_NAME = 'Savantle-Backend-PRD'
         CONTAINER_NAME_BLUE = 'Savantle-Backend-PRD-BLUE'
-        /** Host port for blue only; prod uses --network host on 163 so blue must not publish 163:163 while prod runs. */
         BLUE_HOST_PORT = '1164'
         DOCKERFILE = 'Dockerfile_PRD'
         APP_PROPERTIES = './src/main/resources/application.properties'
