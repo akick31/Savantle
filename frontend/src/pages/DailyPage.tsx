@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameState } from '../hooks/useGameState';
 import { useStats } from '../hooks/useStats';
@@ -6,7 +6,8 @@ import GamePlay from '../components/game/GamePlay';
 import EndScreen from '../components/game/EndScreen';
 import LoadingScreen from '../components/layout/LoadingScreen';
 import PercentileDisplay from '../components/game/PercentileDisplay';
-import { dailyScreenshotUrl, recordAnalytics } from '../services/api';
+import { dailyScreenshotUrl, recordAnalytics, fetchGlobalStats } from '../services/api';
+import { GlobalStats } from '../types';
 
 const HTP_SHOWN_KEY = 'savantle-htp-shown';
 
@@ -17,6 +18,7 @@ export default function DailyPage() {
   const recordedForDate = useRef<string | null>(null);
   const guessesRef = useRef(dailyState.guesses);
   guessesRef.current = dailyState.guesses;
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
 
   useEffect(() => {
     if (dailyState.status === 'playing' && !localStorage.getItem(HTP_SHOWN_KEY)) {
@@ -39,11 +41,24 @@ export default function DailyPage() {
     localStorage.setItem(analyticsKey, '1');
 
     recordGame(s === 'won', guessCount, date);
-    recordAnalytics(s === 'won' ? 'GAME_WON' : 'GAME_LOST');
+
+    const analyticsRequests = [recordAnalytics(s === 'won' ? 'GAME_WON' : 'GAME_LOST')];
     if (s === 'won' && guessCount >= 1 && guessCount <= 5) {
-      recordAnalytics(`GUESS_${guessCount}`);
+      analyticsRequests.push(recordAnalytics(`GUESS_${guessCount}`));
     }
+    Promise.allSettled(analyticsRequests).then(() => {
+      fetchGlobalStats().then(setGlobalStats).catch(() => {});
+    });
   }, [dailyState.status, dailyState.dailyData?.date, dailyState.guesses.length, recordGame]);
+
+  useEffect(() => {
+    const s = dailyState.status;
+    const date = dailyState.dailyData?.date;
+    if (!date || (s !== 'won' && s !== 'lost')) return;
+    const analyticsKey = `savantle-analytics-${date}`;
+    if (!localStorage.getItem(analyticsKey)) return;
+    fetchGlobalStats().then(setGlobalStats).catch(() => {});
+  }, [dailyState.status, dailyState.dailyData?.date]);
 
   const playerType = dailyState.dailyData?.playerType ?? 'BATTER';
   const screenshotUrl = dailyState.dailyData?.date ? dailyScreenshotUrl(dailyState.dailyData.date) : '';
@@ -79,6 +94,7 @@ export default function DailyPage() {
             hints={dailyState.hints}
             currentStreak={stats.currentStreak}
             isDailyMode
+            globalStats={globalStats}
             onReplay={() => navigate('/replay')}
             onRandom={() => navigate('/random')}
           />

@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { GameStatus, PlayerInfo, HintData, PlayerSearchItem, GlobalStats } from '../../types';
 import { buildShareText, calculateSavantleNumber } from '../../utils/share';
 import { normalizeForSearch } from '../../utils/normalize';
-import { fetchGlobalStats } from '../../services/api';
 import { ExternalLinkIcon, CalendarIcon } from '../ui/Icons';
 
 interface EndScreenProps {
@@ -15,6 +14,7 @@ interface EndScreenProps {
   guesses: string[];
   players: PlayerSearchItem[];
   isDailyMode?: boolean;
+  globalStats?: GlobalStats | null;
   onReplay?: () => void;
   onRandom?: () => void;
   onPlayAnother?: () => void;
@@ -59,6 +59,7 @@ export default function EndScreen({
   guesses,
   players,
   isDailyMode = true,
+  globalStats = null,
   onReplay,
   onRandom,
   onPlayAnother,
@@ -66,13 +67,7 @@ export default function EndScreen({
   onOpenPicker,
 }: EndScreenProps) {
   const [copied, setCopied] = useState(false);
-  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const won = status === 'won';
-
-  useEffect(() => {
-    if (!isDailyMode) return;
-    fetchGlobalStats().then(setGlobalStats).catch(() => {});
-  }, [isDailyMode]);
 
   const handleShare = async () => {
     const savantleNum = calculateSavantleNumber(date);
