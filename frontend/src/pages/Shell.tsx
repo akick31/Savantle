@@ -6,7 +6,6 @@ import HowToPlay from '../components/modals/HowToPlay';
 import StatsModal from '../components/modals/StatsModal';
 import SettingsModal from '../components/modals/SettingsModal';
 import ContactModal from '../components/modals/ContactModal';
-import ProjectsModal from '../components/modals/ProjectsModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
 import GlobalStatsModal from '../components/modals/GlobalStatsModal';
 import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
@@ -86,26 +85,13 @@ export default function Shell({ gameMode, children }: ShellProps) {
             </svg>
             <span>Support Development</span>
         </a>
-        <button
-          onClick={() => openModal('projects')}
-          className="inline-flex items-center gap-1 text-sv-muted text-xs hover:text-sv-accent transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-          </svg>
-          <span>My Other Projects</span>
-        </button>
       </footer>
 
         <HowToPlay open={activeModal === 'how-to-play'} onClose={closeModal} onContact={() => openModal('contact')}/>
         <StatsModal open={activeModal === 'stats'} onClose={closeModal} stats={stats}/>
         <SettingsModal open={activeModal === 'settings'} onClose={closeModal} settings={settings} onUpdate={updateSettings} />
       <ContactModal open={activeModal === 'contact'} onClose={closeModal} />
-      <ProjectsModal open={activeModal === 'projects'} onClose={closeModal} />
-      <ReplayPickerModal open={activeModal === 'replay-picker'} onClose={closeModal} onSelect={handleReplaySelect} />
+<ReplayPickerModal open={activeModal === 'replay-picker'} onClose={closeModal} onSelect={handleReplaySelect} />
       <GlobalStatsModal open={activeModal === 'global-stats'} onClose={closeModal} />
       <DowntimeApologyModal />
     </div>
