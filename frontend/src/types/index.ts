@@ -2,7 +2,7 @@ export type PlayerType = 'BATTER' | 'PITCHER';
 
 export type GameMode = 'daily' | 'replay' | 'random';
 
-export type ModalId = 'how-to-play' | 'stats' | 'global-stats' | 'settings' | 'contact' | 'replay-picker' | 'projects';
+export type ModalId = 'how-to-play' | 'stats' | 'global-stats' | 'settings' | 'contact' | 'replay-picker';
 
 export type GameStatus = 'loading' | 'playing' | 'won' | 'lost';
 
