@@ -75,6 +75,17 @@ class DailyPlayerService(
         if (result != null) {
             player.screenshot = result.pngBytes
             player.savantUrl = result.savantUrl
+            // Sync team info in case the player was traded since curation
+            val rosterPlayer = rosterCache.firstOrNull { it.mlbamId == player.mlbamId }
+            if (rosterPlayer != null) {
+                if (rosterPlayer.team.name != player.teamName) {
+                    log.info("Team change detected for ${player.fullName}: ${player.teamName} -> ${rosterPlayer.team.name}")
+                }
+                player.teamName = rosterPlayer.team.name
+                player.teamAbbr = rosterPlayer.team.abbreviation
+                player.league = rosterPlayer.team.league
+                player.division = rosterPlayer.team.division
+            }
             dailyPlayerRepository.save(player)
             log.info("Refreshed screenshot for today: ${player.fullName}")
         } else {
