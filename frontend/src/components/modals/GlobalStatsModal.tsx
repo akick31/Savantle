@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import { fetchGlobalStats } from '../../services/api';
 import { GlobalStats } from '../../types';
+import { getSavantleAnalyticsDate } from '../../utils/share';
 
 interface GlobalStatsModalProps {
   open: boolean;
@@ -17,7 +18,7 @@ export default function GlobalStatsModal({ open, onClose }: GlobalStatsModalProp
     if (!open) return;
     setLoading(true);
     setError(false);
-    fetchGlobalStats()
+    fetchGlobalStats(getSavantleAnalyticsDate())
       .then(setStats)
       .catch(() => setError(true))
       .finally(() => setLoading(false));
