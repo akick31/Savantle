@@ -42,12 +42,12 @@ export default function DailyPage() {
 
     recordGame(s === 'won', guessCount, date);
 
-    const analyticsRequests = [recordAnalytics(s === 'won' ? 'GAME_WON' : 'GAME_LOST')];
+    const analyticsRequests = [recordAnalytics(s === 'won' ? 'GAME_WON' : 'GAME_LOST', date)];
     if (s === 'won' && guessCount >= 1 && guessCount <= 5) {
-      analyticsRequests.push(recordAnalytics(`GUESS_${guessCount}`));
+      analyticsRequests.push(recordAnalytics(`GUESS_${guessCount}`, date));
     }
     Promise.allSettled(analyticsRequests).then(() => {
-      fetchGlobalStats().then(setGlobalStats).catch(() => {});
+      fetchGlobalStats(date).then(setGlobalStats).catch(() => {});
     });
   }, [dailyState.status, dailyState.dailyData?.date, dailyState.guesses.length, recordGame]);
 
@@ -57,7 +57,7 @@ export default function DailyPage() {
     if (!date || (s !== 'won' && s !== 'lost')) return;
     const analyticsKey = `savantle-analytics-${date}`;
     if (!localStorage.getItem(analyticsKey)) return;
-    fetchGlobalStats().then(setGlobalStats).catch(() => {});
+    fetchGlobalStats(date).then(setGlobalStats).catch(() => {});
   }, [dailyState.status, dailyState.dailyData?.date]);
 
   const playerType = dailyState.dailyData?.playerType ?? 'BATTER';

@@ -29,23 +29,23 @@ class AnalyticsService(private val analyticsRepository: AnalyticsRepository) {
     }
 
     @Transactional
-    fun record(eventType: String) {
+    fun record(eventType: String, date: LocalDate = analyticsDate()) {
         require(eventType in ALLOWED_EVENTS) { "Unknown event type: $eventType" }
-        val today = analyticsDate()
-        val updated = analyticsRepository.increment(today, eventType)
+        val updated = analyticsRepository.increment(date, eventType)
         if (updated == 0) {
             try {
-                analyticsRepository.save(Analytics(eventDate = today, eventType = eventType, count = 1))
+                analyticsRepository.save(Analytics(eventDate = date, eventType = eventType, count = 1))
             } catch (e: Exception) {
-                analyticsRepository.increment(today, eventType)
+                analyticsRepository.increment(date, eventType)
             }
         }
-        log.debug("Analytics recorded: $eventType")
+        log.debug("Analytics recorded: $eventType for $date")
     }
 
     fun recordFromRequest(request: AnalyticsRequest): ResponseEntity<Any> {
         return try {
-            record(request.eventType)
+            val date = request.date?.let { LocalDate.parse(it) } ?: analyticsDate()
+            record(request.eventType, date)
             ResponseEntity.ok(mapOf("ok" to true))
         } catch (e: IllegalArgumentException) {
             ResponseEntity.badRequest().body(mapOf("error" to e.message))
@@ -69,8 +69,8 @@ class AnalyticsService(private val analyticsRepository: AnalyticsRepository) {
         return ResponseEntity.ok(getSummary(start, end))
     }
 
-    fun getGlobalStats(): ResponseEntity<Any> {
-        val today = analyticsDate()
+    fun getGlobalStats(date: LocalDate = analyticsDate()): ResponseEntity<Any> {
+        val today = date
         val all = analyticsRepository.findByEventDateBetween(today, today)
         val byType = all.groupBy { it.eventType }.mapValues { (_, rows) -> rows.sumOf { it.count } }
 

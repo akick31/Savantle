@@ -19,7 +19,12 @@ class AnalyticsController(private val analyticsService: AnalyticsService) {
     ): ResponseEntity<Any> = analyticsService.recordFromRequest(request)
 
     @GetMapping("/stats")
-    fun getGlobalStats(): ResponseEntity<Any> = analyticsService.getGlobalStats()
+    fun getGlobalStats(
+        @RequestParam(required = false) date: String?,
+    ): ResponseEntity<Any> {
+        val parsedDate = date?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+        return analyticsService.getGlobalStats(parsedDate ?: AnalyticsService.analyticsDate())
+    }
 
     @GetMapping("/admin/analytics")
     fun getAnalytics(

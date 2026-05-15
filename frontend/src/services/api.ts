@@ -89,20 +89,21 @@ export async function fetchRandomDate(): Promise<string> {
   return data.date;
 }
 
-export async function recordAnalytics(eventType: string): Promise<void> {
+export async function recordAnalytics(eventType: string, date?: string): Promise<void> {
   try {
     await fetch(`${BASE_URL}/analytics`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventType }),
+      body: JSON.stringify({ eventType, date }),
     });
   } catch (e) {
     console.error('[analytics] failed to record', eventType, e);
   }
 }
 
-export async function fetchGlobalStats(): Promise<GlobalStats> {
-  const res = await fetch(`${BASE_URL}/stats`);
+export async function fetchGlobalStats(date?: string): Promise<GlobalStats> {
+  const url = date ? `${BASE_URL}/stats?date=${date}` : `${BASE_URL}/stats`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
