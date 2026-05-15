@@ -46,5 +46,5 @@ export function buildShareText(
   const result = status === 'won' ? `${guessCount}/5` : 'X/5';
   const streakLine = currentStreak > 0 ? `\nWinning streak: ${currentStreak}` : '';
 
-  return `Savantle | #${savantleNumber}\n${emoji} ${result}${streakLine}`;
+  return `Savantle | #${savantleNumber}\n${emoji} ${result}${streakLine}\nhttps://savantle.com`;
 }
