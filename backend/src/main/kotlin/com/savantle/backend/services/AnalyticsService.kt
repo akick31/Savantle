@@ -29,7 +29,10 @@ class AnalyticsService(private val analyticsRepository: AnalyticsRepository) {
     }
 
     @Transactional
-    fun record(eventType: String, date: LocalDate = analyticsDate()) {
+    fun record(
+        eventType: String,
+        date: LocalDate = analyticsDate(),
+    ) {
         require(eventType in ALLOWED_EVENTS) { "Unknown event type: $eventType" }
         val updated = analyticsRepository.increment(date, eventType)
         if (updated == 0) {
