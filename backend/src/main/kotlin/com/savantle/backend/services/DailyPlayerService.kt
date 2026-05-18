@@ -66,19 +66,30 @@ class DailyPlayerService(
         curateUpcomingDays()
     }
 
-    @Scheduled(cron = "0 10 4 * * *")
+    @Scheduled(cron = "0 30 9 * * *", zone = "UTC")
     @Transactional
-    fun refreshTodayScreenshot() {
-        val today = LocalDate.now()
-        val player = dailyPlayerRepository.findByGameDate(today) ?: return
+    fun refreshNextDayScreenshot() {
+        val tomorrow = LocalDate.now().plusDays(1)
+        val player = dailyPlayerRepository.findByGameDate(tomorrow) ?: return
+        refreshRoster()
         val result = screenshotService.capturePercentiles(player.mlbamId, player.fullName, player.isPitcher)
         if (result != null) {
             player.screenshot = result.pngBytes
             player.savantUrl = result.savantUrl
+            val rosterPlayer = rosterCache.firstOrNull { it.mlbamId == player.mlbamId }
+            if (rosterPlayer != null) {
+                if (rosterPlayer.team.name != player.teamName) {
+                    log.info("Team change detected for ${player.fullName}: ${player.teamName} -> ${rosterPlayer.team.name}")
+                }
+                player.teamName = rosterPlayer.team.name
+                player.teamAbbr = rosterPlayer.team.abbreviation
+                player.league = rosterPlayer.team.league
+                player.division = rosterPlayer.team.division
+            }
             dailyPlayerRepository.save(player)
-            log.info("Refreshed screenshot for today: ${player.fullName}")
+            log.info("Refreshed screenshot for tomorrow: ${player.fullName}")
         } else {
-            log.warn("Could not refresh screenshot for today: ${player.fullName}")
+            log.warn("Could not refresh screenshot for tomorrow: ${player.fullName}")
         }
     }
 
