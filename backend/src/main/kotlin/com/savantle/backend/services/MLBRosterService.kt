@@ -105,11 +105,15 @@ class MLBRosterService {
         }
     }
 
-    fun fetchPitcherStats(mlbamId: Int, year: Int): Pair<Double, Int>? {
+    fun fetchPitcherStats(
+        mlbamId: Int,
+        year: Int,
+    ): Pair<Double, Int>? {
         return try {
-            val json = get(
-                "https://statsapi.mlb.com/api/v1/people/$mlbamId/stats?stats=season&group=pitching&season=$year&gameType=R"
-            )
+            val json =
+                get(
+                    "https://statsapi.mlb.com/api/v1/people/$mlbamId/stats?stats=season&group=pitching&season=$year&gameType=R",
+                )
             val splits = mapper.readTree(json).path("stats").firstOrNull()?.path("splits") ?: return null
             val stat = splits.firstOrNull()?.path("stat") ?: return null
             val ipStr = stat.path("inningsPitched").asText("0")

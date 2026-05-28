@@ -93,11 +93,12 @@ object PlayerUtils {
                 when (scheduledType) {
                     "POSITION" ->
                         if (player.isPitcher && player.inningsPitched != null && player.gamesStarted != null) {
-                            val ipDisplay = run {
-                                val full = player.inningsPitched.toInt()
-                                val frac = ((player.inningsPitched - full) * 3).roundToInt().coerceIn(0, 2)
-                                if (frac == 0) "$full.0" else "$full.$frac"
-                            }
+                            val ipDisplay =
+                                run {
+                                    val full = player.inningsPitched.toInt()
+                                    val frac = ((player.inningsPitched - full) * 3).roundToInt().coerceIn(0, 2)
+                                    if (frac == 0) "$full.0" else "$full.$frac"
+                                }
                             hint("POSITION", "Pitcher Workload", "${player.gamesStarted} GS & $ipDisplay IP", confirmed = false)
                         } else {
                             hint(
