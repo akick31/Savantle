@@ -15,6 +15,7 @@ export default function RandomPage() {
       started.current = true;
       randomState.startGame();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

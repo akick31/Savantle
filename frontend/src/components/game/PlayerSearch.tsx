@@ -145,9 +145,7 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
           </button>
         </div>
 
-        <p className="text-xs text-sv-muted mt-1.5">
-          Full name required · Accents optional
-        </p>
+
     </div>
   );
 }
