@@ -86,6 +86,13 @@ class DailyPlayerService(
                 player.league = rosterPlayer.team.league
                 player.division = rosterPlayer.team.division
             }
+            if (player.isPitcher) {
+                val stats = mlbRosterService.fetchPitcherStats(player.mlbamId, tomorrow.year)
+                if (stats != null) {
+                    player.inningsPitched = stats.first
+                    player.gamesStarted = stats.second
+                }
+            }
             dailyPlayerRepository.save(player)
             log.info("Refreshed screenshot for tomorrow: ${player.fullName}")
         } else {
@@ -203,6 +210,7 @@ class DailyPlayerService(
             screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
                 ?: throw IllegalStateException("Could not capture screenshot for ${candidate.fullName}")
 
+        val pitcherStats = if (isPitcher) mlbRosterService.fetchPitcherStats(candidate.mlbamId, date.year) else null
         dailyPlayerRepository.deleteByGameDate(date)
         entityManager.flush()
         val saved =
@@ -221,6 +229,8 @@ class DailyPlayerService(
                     division = candidate.team.division,
                     savantUrl = result.savantUrl,
                     screenshot = result.pngBytes,
+                    inningsPitched = pitcherStats?.first,
+                    gamesStarted = pitcherStats?.second,
                 ),
             )
         log.info("Manually curated $date: ${saved.fullName}")
@@ -263,6 +273,7 @@ class DailyPlayerService(
                 screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
                     ?: continue
 
+            val pitcherStats = if (isPitcher) mlbRosterService.fetchPitcherStats(candidate.mlbamId, date.year) else null
             return DailyPlayer(
                 gameDate = date,
                 mlbamId = candidate.mlbamId,
@@ -277,6 +288,8 @@ class DailyPlayerService(
                 division = candidate.team.division,
                 savantUrl = result.savantUrl,
                 screenshot = result.pngBytes,
+                inningsPitched = pitcherStats?.first,
+                gamesStarted = pitcherStats?.second,
             )
         }
         return null

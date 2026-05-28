@@ -59,4 +59,5 @@ class GameController(private val gameResponseService: GameResponseService) {
     fun curateDate(
         @RequestBody request: ManualCurateRequest,
     ): ResponseEntity<Any> = gameResponseService.curateAutoForDate(request.date, request.playerName)
+
 }

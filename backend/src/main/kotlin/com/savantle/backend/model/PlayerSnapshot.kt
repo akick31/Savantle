@@ -11,4 +11,6 @@ data class PlayerSnapshot(
     val league: String,
     val division: String,
     val savantUrl: String,
+    val inningsPitched: Double? = null,
+    val gamesStarted: Int? = null,
 )

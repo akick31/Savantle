@@ -56,6 +56,7 @@ export default function GamePlay({ dailyData, screenshotUrl, players, guesses, h
     .sort((a, b) => (HINT_TYPE_ORDER[a.type] ?? 9) - (HINT_TYPE_ORDER[b.type] ?? 9));
   const currentHints = hints.filter(h => !h.confirmed);
 
+
   return (
     <div className="space-y-4">
       <PercentileDisplay screenshotUrl={screenshotUrl} playerType={dailyData.playerType} />

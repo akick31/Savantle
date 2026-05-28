@@ -105,6 +105,23 @@ class MLBRosterService {
         }
     }
 
+    fun fetchPitcherStats(mlbamId: Int, year: Int): Pair<Double, Int>? {
+        return try {
+            val json = get(
+                "https://statsapi.mlb.com/api/v1/people/$mlbamId/stats?stats=season&group=pitching&season=$year&gameType=R"
+            )
+            val splits = mapper.readTree(json).path("stats").firstOrNull()?.path("splits") ?: return null
+            val stat = splits.firstOrNull()?.path("stat") ?: return null
+            val ipStr = stat.path("inningsPitched").asText("0")
+            val ip = parseInningsPitched(ipStr)
+            val gs = stat.path("gamesStarted").asInt(0)
+            ip to gs
+        } catch (e: Exception) {
+            log.warn("Failed to fetch pitcher stats for mlbamId=$mlbamId year=$year: ${e.message}")
+            null
+        }
+    }
+
     fun fetchActiveRosters(): List<MLBPlayer> {
         val year = LocalDate.now().year
         val teams = fetchTeams(year)

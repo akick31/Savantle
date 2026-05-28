@@ -18,7 +18,6 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
           {[
             'You\'ll see a screenshot of the player\'s Baseball Savant percentile rankings with the player\'s identity hidden.',
             'You have 5 guesses. Each wrong guess reveals the next hint in order. If your guess is on the same team or in the same division as the answer, those hints are confirmed early and shown in green.',
-            'Full name required (e.g., "Aaron Judge"). Accents are not required and auto-fill is provided.',
           ].map((text, i) => (
             <div key={i} className="flex gap-2">
               <span className="text-sv-accent font-bold text-sm leading-5 flex-shrink-0">{i + 1}.</span>
@@ -31,7 +30,7 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
           <p className="font-medium text-sv-text text-xs mb-2">Hints after each wrong guess</p>
           {[
             ['Guess 1', 'Free for all, no hint'],
-            ['Guess 2', 'Position (e.g., SS, 3B) or pitcher handedness (LHP, RHP)'],
+            ['Guess 2', 'Position (e.g., SS, 3B) or innings pitched & games started for pitchers'],
             ['Guess 3', 'League (AL or NL)'],
             ['Guess 4', 'Division (e.g., AL East)'],
             ['Guess 5', 'Team name'],
