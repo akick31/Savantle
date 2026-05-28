@@ -22,6 +22,7 @@ class RandomGameService(
     private val screenshotService: ScreenshotService,
     private val dailyPlayerRepository: DailyPlayerRepository,
     private val dailyPlayerService: DailyPlayerService,
+    private val mlbRosterService: MLBRosterService,
     @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int,
 ) {
     companion object {
@@ -111,6 +112,7 @@ class RandomGameService(
                 screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
                     ?: continue
 
+            val pitcherStats = if (isPitcher) mlbRosterService.fetchPitcherStats(candidate.mlbamId, LocalDate.now().year) else null
             val gameId = UUID.randomUUID().toString()
             return RandomGame(
                 gameId = gameId,
@@ -126,6 +128,8 @@ class RandomGameService(
                 division = candidate.team.division,
                 savantUrl = result.savantUrl,
                 screenshot = result.pngBytes,
+                inningsPitched = pitcherStats?.first,
+                gamesStarted = pitcherStats?.second,
             )
         }
 

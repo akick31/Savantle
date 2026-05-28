@@ -16,5 +16,7 @@ data class RandomGame(
     val division: String,
     val savantUrl: String,
     val screenshot: ByteArray,
+    val inningsPitched: Double? = null,
+    val gamesStarted: Int? = null,
     val createdAt: Instant = Instant.now(),
 )

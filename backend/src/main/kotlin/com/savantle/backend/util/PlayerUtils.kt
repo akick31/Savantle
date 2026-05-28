@@ -5,6 +5,7 @@ import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.model.PlayerSnapshot
 import com.savantle.backend.model.RandomGame
 import java.text.Normalizer
+import kotlin.math.roundToInt
 
 object PlayerUtils {
     val PITCHER_POSITIONS = setOf("SP", "RP", "P")
@@ -91,12 +92,22 @@ object PlayerUtils {
             hints +=
                 when (scheduledType) {
                     "POSITION" ->
-                        hint(
-                            "POSITION",
-                            if (player.isPitcher) "Handedness" else "Position",
-                            formatPosition(player.isPitcher, player.throwingHand, player.position),
-                            confirmed = false,
-                        )
+                        if (player.isPitcher && player.inningsPitched != null && player.gamesStarted != null) {
+                            val ipDisplay =
+                                run {
+                                    val full = player.inningsPitched.toInt()
+                                    val frac = ((player.inningsPitched - full) * 3).roundToInt().coerceIn(0, 2)
+                                    if (frac == 0) "$full.0" else "$full.$frac"
+                                }
+                            hint("POSITION", "Pitcher Workload", "${player.gamesStarted} GS & $ipDisplay IP", confirmed = false)
+                        } else {
+                            hint(
+                                "POSITION",
+                                if (player.isPitcher) "Handedness" else "Position",
+                                formatPosition(player.isPitcher, player.throwingHand, player.position),
+                                confirmed = false,
+                            )
+                        }
                     "LEAGUE" -> hint("LEAGUE", "League", player.league, confirmed = false)
                     "DIVISION" -> hint("DIVISION", "Division", player.division, confirmed = false)
                     "TEAM" -> hint("TEAM", "Team", player.teamName, confirmed = false)
@@ -120,6 +131,8 @@ fun DailyPlayer.toSnapshot() =
         league = league,
         division = division,
         savantUrl = savantUrl,
+        inningsPitched = inningsPitched,
+        gamesStarted = gamesStarted,
     )
 
 fun RandomGame.toSnapshot() =
@@ -134,4 +147,6 @@ fun RandomGame.toSnapshot() =
         league = league,
         division = division,
         savantUrl = savantUrl,
+        inningsPitched = inningsPitched,
+        gamesStarted = gamesStarted,
     )

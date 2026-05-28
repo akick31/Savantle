@@ -46,6 +46,10 @@ class DailyPlayer(
     var division: String,
     @Column(name = "savant_url", nullable = false, length = 500)
     var savantUrl: String,
+    @Column(name = "innings_pitched")
+    var inningsPitched: Double? = null,
+    @Column(name = "games_started")
+    var gamesStarted: Int? = null,
     @Lob
     @JdbcTypeCode(SqlTypes.LONGVARBINARY)
     @Column(name = "screenshot", nullable = false, columnDefinition = "LONGBLOB")
