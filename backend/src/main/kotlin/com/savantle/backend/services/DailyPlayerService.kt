@@ -28,10 +28,13 @@ class DailyPlayerService(
     @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int,
     @Value("\${savantle.qualification.batter-min-pa:75}") private val minBatterPa: Int,
     @Value("\${savantle.qualification.pitcher-min-ip:15.0}") private val minPitcherIp: Double,
+    @Value("\${savantle.qualification.starter-ip-target:120.0}") private val starterIpTarget: Double,
+    @Value("\${savantle.qualification.reliever-ip-target:50.0}") private val relieverIpTarget: Double,
     @Value("\${savantle.qualification.early-season-days:30}") private val earlySeasonDays: Long,
 ) {
     companion object {
         private const val LIVE_SCREENSHOT_TTL_HOURS = 24L
+        private const val SEASON_LENGTH_DAYS = 183.0
     }
 
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)
@@ -113,12 +116,22 @@ class DailyPlayerService(
                 seasonStartDate = mlbRosterService.fetchSeasonStartDate(year)
                 log.info("Season start date: $seasonStartDate")
             }
-            val ids = mlbRosterService.fetchQualifiedPlayerIds(year, minBatterPa, minPitcherIp)
+            val (starterFloor, relieverFloor) = computePitcherFloors()
+            val ids = mlbRosterService.fetchQualifiedPlayerIds(year, minBatterPa, starterFloor, relieverFloor)
             qualifiedIds = ids
             log.info("Qualification pool: ${ids.size} players")
         } catch (e: Exception) {
             log.error("Failed to refresh roster", e)
         }
+    }
+
+    private fun computePitcherFloors(): Pair<Double, Double> {
+        val start = seasonStartDate ?: return Pair(minPitcherIp, minPitcherIp)
+        val progress = ((LocalDate.now().toEpochDay() - start.toEpochDay()) / SEASON_LENGTH_DAYS).coerceIn(0.0, 1.0)
+        return Pair(
+            maxOf(minPitcherIp, progress * starterIpTarget),
+            maxOf(minPitcherIp, progress * relieverIpTarget),
+        )
     }
 
     fun isEarlySeason(date: LocalDate): Boolean {
@@ -311,8 +324,11 @@ class DailyPlayerService(
         val today = LocalDate.now()
         val combined = LinkedHashMap<String, Map<String, String>>()
 
+        val applyPitcherFilter = !isEarlySeason(today) && qualifiedIds.isNotEmpty()
         for (player in rosterCache) {
             val normalized = PlayerUtils.normalizeForSearch(player.fullName)
+            val isPitcher = player.position in PITCHER_POSITIONS
+            if (isPitcher && applyPitcherFilter && player.mlbamId !in qualifiedIds) continue
             val types =
                 when {
                     player.position == "TWP" -> listOf("PITCHER", "BATTER")
