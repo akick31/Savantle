@@ -49,7 +49,8 @@ class MLBRosterService {
     fun fetchQualifiedPlayerIds(
         year: Int,
         minBatterPa: Int,
-        minPitcherIp: Double,
+        minStarterIp: Double,
+        minRelieverIp: Double,
     ): Set<Int> {
         val qualified = mutableSetOf<Int>()
 
@@ -81,12 +82,14 @@ class MLBRosterService {
             mapper.readTree(pitchingJson).path("stats").forEach { group ->
                 group.path("splits").forEach { split ->
                     val id = split.path("player").path("id").asInt()
-                    val ipStr = split.path("stat").path("inningsPitched").asText("0")
-                    val ip = parseInningsPitched(ipStr)
-                    if (id > 0 && ip >= minPitcherIp) qualified.add(id)
+                    val stat = split.path("stat")
+                    val ip = parseInningsPitched(stat.path("inningsPitched").asText("0"))
+                    val gs = stat.path("gamesStarted").asInt(0)
+                    val minIp = if (gs > 0) minStarterIp else minRelieverIp
+                    if (id > 0 && ip >= minIp) qualified.add(id)
                 }
             }
-            log.info("Qualified pitchers (IP >= $minPitcherIp): ${qualified.size - beforePitching}")
+            log.info("Qualified pitchers (starters >= $minStarterIp IP, relievers >= $minRelieverIp IP): ${qualified.size - beforePitching}")
         } catch (e: Exception) {
             log.warn("Failed to fetch pitching qualification stats: ${e.message}")
         }

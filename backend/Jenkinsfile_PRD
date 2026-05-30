@@ -110,6 +110,8 @@ pipeline {
                             savantle.curator.cron=0 0 4 * * *
                             savantle.qualification.batter-min-pa=75
                             savantle.qualification.pitcher-min-ip=30.0
+                            savantle.qualification.starter-ip-target=120.0
+                            savantle.qualification.reliever-ip-target=50.0
                             savantle.qualification.early-season-days=30
                             spring.cache.type=caffeine
                             spring.cache.caffeine.spec=maximumSize=200,expireAfterWrite=25h
