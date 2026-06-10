@@ -50,7 +50,7 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
 
         <div className="border-t border-sv-border pt-3 text-xs text-sv-muted">
           <p className="mb-2">
-            A new player is revealed every day at midnight. Players are selected from active 26-man MLB rosters with at least 75 plate appearances (batters) or 15 innings pitched (pitchers). This requirement is waived during the first 30 days of the season.
+            A new player is revealed every day at midnight. Players are selected from active 26-man MLB rosters with at least 75 plate appearances (batters) or 30 innings pitched (pitchers). This requirement is waived during the first 30 days of the season.
           </p>
           <p>
             Percentile data and screenshots are from{' '}

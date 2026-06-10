@@ -69,6 +69,37 @@ class DailyPlayerService(
         curateUpcomingDays()
     }
 
+    @Scheduled(cron = "\${savantle.validator.cron:0 30 23 * * *}")
+    @Transactional
+    fun validateAndSwapTomorrowsPlayer() {
+        val tomorrow = LocalDate.now().plusDays(1)
+        val player = dailyPlayerRepository.findByGameDate(tomorrow) ?: return
+
+        refreshRoster()
+
+        val onRoster = rosterCache.any { it.mlbamId == player.mlbamId }
+        val meetsQualification = isEarlySeason(tomorrow) || qualifiedIds.isEmpty() || player.mlbamId in qualifiedIds
+
+        if (onRoster && meetsQualification) {
+            log.info("Tomorrow's player ${player.fullName} is still eligible")
+            return
+        }
+
+        val reason = if (!onRoster) "no longer on active roster" else "no longer meets qualification requirements"
+        log.warn("${player.fullName} is $reason for $tomorrow — finding replacement")
+
+        val replacement = curateForDate(tomorrow, rosterCache.filter { it.mlbamId != player.mlbamId })
+            ?: run {
+                log.warn("No replacement found for $tomorrow — keeping ${player.fullName}")
+                return
+            }
+
+        dailyPlayerRepository.deleteByGameDate(tomorrow)
+        entityManager.flush()
+        dailyPlayerRepository.save(replacement)
+        log.info("Swapped ${player.fullName} → ${replacement.fullName} for $tomorrow")
+    }
+
     @Scheduled(cron = "0 30 9 * * *", zone = "UTC")
     @Transactional
     fun refreshNextDayScreenshot() {
@@ -324,11 +355,8 @@ class DailyPlayerService(
         val today = LocalDate.now()
         val combined = LinkedHashMap<String, Map<String, String>>()
 
-        val applyPitcherFilter = !isEarlySeason(today) && qualifiedIds.isNotEmpty()
         for (player in rosterCache) {
             val normalized = PlayerUtils.normalizeForSearch(player.fullName)
-            val isPitcher = player.position in PITCHER_POSITIONS
-            if (isPitcher && applyPitcherFilter && player.mlbamId !in qualifiedIds) continue
             val types =
                 when {
                     player.position == "TWP" -> listOf("PITCHER", "BATTER")

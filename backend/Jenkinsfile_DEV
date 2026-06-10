@@ -70,6 +70,7 @@ pipeline {
                             spring.mail.properties.mail.smtp.starttls.enable=true
                             savantle.curator.days-ahead=7
                             savantle.curator.cron=0 0 4 * * *
+                            savantle.validator.cron=0 30 23 * * *
                             savantle.qualification.batter-min-pa=75
                             savantle.qualification.pitcher-min-ip=30.0
                             savantle.qualification.starter-ip-target=120.0
