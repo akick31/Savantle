@@ -88,11 +88,12 @@ class DailyPlayerService(
         val reason = if (!onRoster) "no longer on active roster" else "no longer meets qualification requirements"
         log.warn("${player.fullName} is $reason for $tomorrow — finding replacement")
 
-        val replacement = curateForDate(tomorrow, rosterCache.filter { it.mlbamId != player.mlbamId })
-            ?: run {
-                log.warn("No replacement found for $tomorrow — keeping ${player.fullName}")
-                return
-            }
+        val replacement =
+            curateForDate(tomorrow, rosterCache.filter { it.mlbamId != player.mlbamId })
+                ?: run {
+                    log.warn("No replacement found for $tomorrow — keeping ${player.fullName}")
+                    return
+                }
 
         dailyPlayerRepository.deleteByGameDate(tomorrow)
         entityManager.flush()
