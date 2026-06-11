@@ -173,9 +173,12 @@ class DailyPlayerService(
 
     private fun isPlayerEligible(mlbamId: Int): Boolean = isEarlySeason(LocalDate.now()) || qualifiedIds.isEmpty() || mlbamId in qualifiedIds
 
-    private fun eligibilityReason(isPitcher: Boolean): String {
+    private fun eligibilityReason(
+        fullName: String,
+        isPitcher: Boolean,
+    ): String {
         val threshold = if (isPitcher) "IP threshold for pitchers" else "PA threshold for batters"
-        return "Warning: Hasn't reached the $threshold"
+        return "Warning: $fullName hasn't reached the $threshold"
     }
 
     fun getRosterCache(): List<MLBPlayer> = rosterCache
@@ -382,7 +385,7 @@ class DailyPlayerService(
                         "eligible" to eligible,
                     )
                 if (!eligible) {
-                    entry["eligibilityReason"] = eligibilityReason(type == "PITCHER")
+                    entry["eligibilityReason"] = eligibilityReason(player.fullName, type == "PITCHER")
                 }
                 combined["$normalized|$type"] = entry
             }
