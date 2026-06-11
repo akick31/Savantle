@@ -41,6 +41,8 @@ export interface PlayerSearchItem {
   normalizedName: string;
   playerType: PlayerType;
   mlbamId: string;
+  eligible: boolean;
+  eligibilityReason?: string;
 }
 
 export interface RandomGameData {

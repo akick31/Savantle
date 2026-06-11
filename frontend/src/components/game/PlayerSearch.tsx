@@ -15,6 +15,7 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
   const [suggestions, setSuggestions] = useState<PlayerSearchItem[]>([]);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [eligibilityWarning, setEligibilityWarning] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -30,6 +31,7 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
     const val = e.target.value;
     setQuery(val);
     setActiveIdx(-1);
+    setEligibilityWarning(null);
     const suggs = getSuggestions(val);
     setSuggestions(suggs);
     setShowDropdown(suggs.length > 0);
@@ -40,6 +42,7 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
     setSuggestions([]);
     setShowDropdown(false);
     setActiveIdx(-1);
+    setEligibilityWarning(player.eligible ? null : player.eligibilityReason ?? null);
     inputRef.current?.focus();
   };
 
@@ -59,6 +62,7 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
     setQuery('');
     setSuggestions([]);
     setShowDropdown(false);
+    setEligibilityWarning(null);
     onSubmit(match.fullName);
   };
 
@@ -145,7 +149,9 @@ export default function PlayerSearch({ players, playerType, onSubmit, disabled }
           </button>
         </div>
 
-
+        {eligibilityWarning && (
+          <p className="mt-1.5 text-xs text-sv-yellow">{eligibilityWarning}</p>
+        )}
     </div>
   );
 }

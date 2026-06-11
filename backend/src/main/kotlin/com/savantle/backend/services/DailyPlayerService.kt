@@ -171,6 +171,14 @@ class DailyPlayerService(
         return date < start.plusDays(earlySeasonDays)
     }
 
+    private fun isPlayerEligible(mlbamId: Int): Boolean =
+        isEarlySeason(LocalDate.now()) || qualifiedIds.isEmpty() || mlbamId in qualifiedIds
+
+    private fun eligibilityReason(isPitcher: Boolean): String {
+        val threshold = if (isPitcher) "IP threshold for pitchers" else "PA threshold for batters"
+        return "Warning: Hasn't reached the $threshold"
+    }
+
     fun getRosterCache(): List<MLBPlayer> = rosterCache
 
     fun buildRandomPool(excludedMlbamIds: Set<Int>): List<MLBPlayer> {
@@ -352,9 +360,9 @@ class DailyPlayerService(
 
     fun getScreenshot(date: LocalDate): ByteArray? = dailyPlayerRepository.findByGameDate(date)?.screenshot
 
-    fun getPlayerList(): List<Map<String, String>> {
+    fun getPlayerList(): List<Map<String, Any>> {
         val today = LocalDate.now()
-        val combined = LinkedHashMap<String, Map<String, String>>()
+        val combined = LinkedHashMap<String, Map<String, Any>>()
 
         for (player in rosterCache) {
             val normalized = PlayerUtils.normalizeForSearch(player.fullName)
@@ -364,14 +372,20 @@ class DailyPlayerService(
                     player.position in PITCHER_POSITIONS -> listOf("PITCHER")
                     else -> listOf("BATTER")
                 }
+            val eligible = isPlayerEligible(player.mlbamId)
             for (type in types) {
-                combined["$normalized|$type"] =
-                    mapOf(
+                val entry =
+                    mutableMapOf<String, Any>(
                         "fullName" to player.fullName,
                         "normalizedName" to normalized,
                         "playerType" to type,
                         "mlbamId" to player.mlbamId.toString(),
+                        "eligible" to eligible,
                     )
+                if (!eligible) {
+                    entry["eligibilityReason"] = eligibilityReason(type == "PITCHER")
+                }
+                combined["$normalized|$type"] = entry
             }
         }
 
@@ -389,10 +403,11 @@ class DailyPlayerService(
                     "normalizedName" to normalized,
                     "playerType" to type,
                     "mlbamId" to player.mlbamId.toString(),
+                    "eligible" to true,
                 )
         }
 
-        return combined.values.sortedBy { it["fullName"] }
+        return combined.values.sortedBy { it["fullName"] as String }
     }
 
     fun validateGuess(
