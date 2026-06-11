@@ -171,8 +171,7 @@ class DailyPlayerService(
         return date < start.plusDays(earlySeasonDays)
     }
 
-    private fun isPlayerEligible(mlbamId: Int): Boolean =
-        isEarlySeason(LocalDate.now()) || qualifiedIds.isEmpty() || mlbamId in qualifiedIds
+    private fun isPlayerEligible(mlbamId: Int): Boolean = isEarlySeason(LocalDate.now()) || qualifiedIds.isEmpty() || mlbamId in qualifiedIds
 
     private fun eligibilityReason(isPitcher: Boolean): String {
         val threshold = if (isPitcher) "IP threshold for pitchers" else "PA threshold for batters"
