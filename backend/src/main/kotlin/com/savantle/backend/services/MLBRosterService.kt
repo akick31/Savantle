@@ -136,8 +136,14 @@ class MLBRosterService {
 
         return teams.flatMap { team ->
             try {
-                val players = fetchRoster(team, "active")
-                if (players.isEmpty()) fetchRoster(team, "40Man") else players
+                val active = fetchRoster(team, "active")
+                val fortyMan = fetchRoster(team, "40Man")
+                val activeKeys = active.map { it.mlbamId to it.position }.toSet()
+                val inactive =
+                    fortyMan
+                        .filter { (it.mlbamId to it.position) !in activeKeys }
+                        .map { it.copy(onActiveRoster = false) }
+                active + inactive
             } catch (e: Exception) {
                 log.warn("Failed to fetch roster for ${team.name}: ${e.message}")
                 emptyList()
@@ -187,16 +193,17 @@ class MLBRosterService {
             val handCode =
                 person.path("pitchHand").path("code").asText().uppercase().trim()
                     .takeIf { it == "L" || it == "R" || it == "S" }
+            val status = p.path("status").path("description").asText().takeIf { it.isNotBlank() }
 
             if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@flatMap emptyList()
 
             if (posAbbr == "TWP") {
                 listOf(
-                    MLBPlayer(mlbamId = id, fullName = name, position = "SP", throwingHand = handCode, team = team),
-                    MLBPlayer(mlbamId = id, fullName = name, position = "DH", throwingHand = handCode, team = team),
+                    MLBPlayer(mlbamId = id, fullName = name, position = "SP", throwingHand = handCode, team = team, rosterStatus = status),
+                    MLBPlayer(mlbamId = id, fullName = name, position = "DH", throwingHand = handCode, team = team, rosterStatus = status),
                 )
             } else {
-                listOf(MLBPlayer(mlbamId = id, fullName = name, position = posAbbr, throwingHand = handCode, team = team))
+                listOf(MLBPlayer(mlbamId = id, fullName = name, position = posAbbr, throwingHand = handCode, team = team, rosterStatus = status))
             }
         }
     }

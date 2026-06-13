@@ -77,7 +77,7 @@ class DailyPlayerService(
 
         refreshRoster()
 
-        val onRoster = rosterCache.any { it.mlbamId == player.mlbamId }
+        val onRoster = rosterCache.any { it.mlbamId == player.mlbamId && it.onActiveRoster }
         val meetsQualification = isEarlySeason(tomorrow) || qualifiedIds.isEmpty() || player.mlbamId in qualifiedIds
 
         if (onRoster && meetsQualification) {
@@ -171,25 +171,35 @@ class DailyPlayerService(
         return date < start.plusDays(earlySeasonDays)
     }
 
-    private fun isPlayerEligible(mlbamId: Int): Boolean = isEarlySeason(LocalDate.now()) || qualifiedIds.isEmpty() || mlbamId in qualifiedIds
+    private fun isPlayerEligible(player: MLBPlayer): Boolean =
+        player.onActiveRoster &&
+            (isEarlySeason(LocalDate.now()) || qualifiedIds.isEmpty() || player.mlbamId in qualifiedIds)
 
     private fun eligibilityReason(
-        fullName: String,
+        player: MLBPlayer,
         isPitcher: Boolean,
     ): String {
+        if (!player.onActiveRoster) {
+            return if (player.rosterStatus?.startsWith("Injured", ignoreCase = true) == true) {
+                "Warning: ${player.fullName} is currently on the IL"
+            } else {
+                "Warning: ${player.fullName} is not on an active MLB roster"
+            }
+        }
         val threshold = if (isPitcher) "IP threshold for pitchers" else "PA threshold for batters"
-        return "Warning: $fullName hasn't reached the $threshold"
+        return "Warning: ${player.fullName} hasn't reached the $threshold"
     }
 
     fun getRosterCache(): List<MLBPlayer> = rosterCache
 
     fun buildRandomPool(excludedMlbamIds: Set<Int>): List<MLBPlayer> {
+        val activeRoster = rosterCache.filter { it.onActiveRoster }
         val basePool =
             if (!isEarlySeason(LocalDate.now()) && qualifiedIds.isNotEmpty()) {
-                val filtered = rosterCache.filter { it.mlbamId in qualifiedIds }
-                filtered.ifEmpty { rosterCache }
+                val filtered = activeRoster.filter { it.mlbamId in qualifiedIds }
+                filtered.ifEmpty { activeRoster }
             } else {
-                rosterCache
+                activeRoster
             }
         return basePool.filter { it.mlbamId !in excludedMlbamIds }
     }
@@ -303,14 +313,15 @@ class DailyPlayerService(
         date: LocalDate,
         pool: List<MLBPlayer>,
     ): DailyPlayer? {
+        val activePool = pool.filter { it.onActiveRoster }
         val qualifiedPool =
             if (isEarlySeason(date) || qualifiedIds.isEmpty()) {
                 log.info("Early season or no qualification data — using full pool for $date")
-                pool
+                activePool
             } else {
-                val filtered = pool.filter { it.mlbamId in qualifiedIds }
-                log.info("Qualification filter: ${pool.size} -> ${filtered.size} players for $date")
-                if (filtered.isEmpty()) pool else filtered
+                val filtered = activePool.filter { it.mlbamId in qualifiedIds }
+                log.info("Qualification filter: ${activePool.size} -> ${filtered.size} players for $date")
+                if (filtered.isEmpty()) activePool else filtered
             }
 
         val recentIds =
@@ -365,6 +376,7 @@ class DailyPlayerService(
     fun getPlayerList(): List<Map<String, Any>> {
         val today = LocalDate.now()
         val combined = LinkedHashMap<String, Map<String, Any>>()
+        val todaysPlayerMlbamId = dailyPlayerRepository.findByGameDate(today)?.mlbamId
 
         for (player in rosterCache) {
             val normalized = PlayerUtils.normalizeForSearch(player.fullName)
@@ -374,7 +386,7 @@ class DailyPlayerService(
                     player.position in PITCHER_POSITIONS -> listOf("PITCHER")
                     else -> listOf("BATTER")
                 }
-            val eligible = isPlayerEligible(player.mlbamId)
+            val eligible = player.mlbamId == todaysPlayerMlbamId || isPlayerEligible(player)
             for (type in types) {
                 val entry =
                     mutableMapOf<String, Any>(
@@ -385,7 +397,7 @@ class DailyPlayerService(
                         "eligible" to eligible,
                     )
                 if (!eligible) {
-                    entry["eligibilityReason"] = eligibilityReason(player.fullName, type == "PITCHER")
+                    entry["eligibilityReason"] = eligibilityReason(player, type == "PITCHER")
                 }
                 combined["$normalized|$type"] = entry
             }
@@ -399,14 +411,16 @@ class DailyPlayerService(
         for (player in allCurated) {
             val normalized = PlayerUtils.normalizeForSearch(player.fullName)
             val type = if (player.isPitcher) "PITCHER" else "BATTER"
-            combined["$normalized|$type"] =
+            combined.putIfAbsent(
+                "$normalized|$type",
                 mapOf(
                     "fullName" to player.fullName,
                     "normalizedName" to normalized,
                     "playerType" to type,
                     "mlbamId" to player.mlbamId.toString(),
                     "eligible" to true,
-                )
+                ),
+            )
         }
 
         return combined.values.sortedBy { it["fullName"] as String }

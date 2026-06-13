@@ -6,4 +6,6 @@ data class MLBPlayer(
     val position: String,
     val throwingHand: String?,
     val team: MLBTeam,
+    val onActiveRoster: Boolean = true,
+    val rosterStatus: String? = null,
 )
