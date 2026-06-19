@@ -60,9 +60,11 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
               rel="noopener noreferrer"
               className="text-sv-accent hover:underline"
             >
-              Baseball Savant
+              Baseball Savant.
             </a>
-            . Savantle is an independent project by Andrew at <a href="https://polyloon.com" target="_blank">Polyloon Studios</a>.
+          </p>
+          <p>
+            Savantle is an independent project by Andrew at <a href="https://polyloon.com" target="_blank">Polyloon Studios</a>.
           </p>
         </div>
 
