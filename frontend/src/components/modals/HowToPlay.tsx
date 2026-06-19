@@ -62,7 +62,7 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
             >
               Baseball Savant
             </a>
-            . Savantle is an unofficial fan project by Andrew Kicklighter.
+            . Savantle is an independent project by Andrew at <a href="https://polyloon.com" target="_blank">Polyloon Studios</a>.
           </p>
         </div>
 

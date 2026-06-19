@@ -20,23 +20,38 @@ const PROJECTS = [
 
 export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
   return (
-    <Modal open={open} onClose={onClose} title="My Other Projects">
-      <div className="space-y-3">
-        {PROJECTS.map((p) => (
+      <Modal open={open} onClose={onClose} title="More from Polyloon Studios">
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {PROJECTS.map((p) => (
+                <a
+                    key={p.name}
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col gap-1 p-3 rounded-lg border border-sv-border bg-sv-bg hover:border-sv-accent transition-colors group"
+                >
+              <span className="text-sm font-semibold text-sv-accent group-hover:underline">
+                {p.name} ↗
+              </span>
+                  <span className="text-xs text-sv-muted">{p.description}</span>
+                </a>
+            ))}
+          </div>
+
+          {/* TODO: Uncomment once polyloon.com landing page is live
+        <div className="pt-2 border-t border-sv-border text-center">
           <a
-            key={p.name}
-            href={p.url}
+            href="https://polyloon.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col gap-1 p-3 rounded-lg border border-sv-border bg-sv-bg hover:border-sv-accent transition-colors group"
+            className="text-xs text-sv-muted hover:text-sv-accent underline transition-colors"
           >
-            <span className="text-sm font-semibold text-sv-accent group-hover:underline">
-              {p.name} ↗
-            </span>
-            <span className="text-xs text-sv-muted">{p.description}</span>
+            See everything I'm building at polyloon.com
           </a>
-        ))}
-      </div>
-    </Modal>
+        </div>
+        */}
+        </div>
+      </Modal>
   );
 }
