@@ -101,12 +101,14 @@ pipeline {
                             management.endpoints.web.exposure.include=health
                             management.health.mail.enabled=false
                             savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
-                            spring.mail.host=smtp.gmail.com
+                            spring.mail.host=smtp.protonmail.ch
                             spring.mail.port=587
                             spring.mail.username=${env.SAVANTLE_MAIL_USERNAME}
                             spring.mail.password=${env.SAVANTLE_MAIL_PASSWORD}
                             spring.mail.properties.mail.smtp.auth=true
                             spring.mail.properties.mail.smtp.starttls.enable=true
+                            spring.mail.properties.mail.smtp.starttls.required=true
+                            spring.mail.properties.mail.smtp.auth.mechanisms=PLAIN LOGIN
                             savantle.curator.days-ahead=7
                             savantle.curator.cron=0 0 4 * * *
                             savantle.validator.cron=0 30 23 * * *
