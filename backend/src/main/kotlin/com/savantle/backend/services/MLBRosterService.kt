@@ -133,11 +133,12 @@ class MLBRosterService {
         val year = LocalDate.now().year
         val teams = fetchTeams(year)
         log.info("Found ${teams.size} MLB teams for $year")
+        val pitchHands = fetchPitchHands(year)
 
         return teams.flatMap { team ->
             try {
-                val active = fetchRoster(team, "active")
-                val fortyMan = fetchRoster(team, "40Man")
+                val active = fetchRoster(team, "active", pitchHands)
+                val fortyMan = fetchRoster(team, "40Man", pitchHands)
                 val activeKeys = active.map { it.mlbamId to it.position }.toSet()
                 val inactive =
                     fortyMan
@@ -148,6 +149,24 @@ class MLBRosterService {
                 log.warn("Failed to fetch roster for ${team.name}: ${e.message}")
                 emptyList()
             }
+        }
+    }
+
+    private fun fetchPitchHands(year: Int): Map<Int, String> {
+        return try {
+            val json = get("https://statsapi.mlb.com/api/v1/sports/1/players?season=$year")
+            val hands = mutableMapOf<Int, String>()
+            mapper.readTree(json).path("people").forEach { p ->
+                val id = p.path("id").asInt()
+                val code =
+                    p.path("pitchHand").path("code").asText().uppercase().trim()
+                        .takeIf { it == "L" || it == "R" || it == "S" }
+                if (id > 0 && code != null) hands[id] = code
+            }
+            hands
+        } catch (e: Exception) {
+            log.warn("Failed to fetch pitch hands: ${e.message}")
+            emptyMap()
         }
     }
 
@@ -179,8 +198,9 @@ class MLBRosterService {
     private fun fetchRoster(
         team: MLBTeam,
         rosterType: String,
+        pitchHands: Map<Int, String>,
     ): List<MLBPlayer> {
-        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/$rosterType?hydrate=person"
+        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/$rosterType"
         val json = get(url)
         val root = mapper.readTree(json)
 
@@ -190,9 +210,7 @@ class MLBRosterService {
             val id = person.path("id").asInt()
             val name = person.path("fullName").asText()
             val posAbbr = pos.path("abbreviation").asText()
-            val handCode =
-                person.path("pitchHand").path("code").asText().uppercase().trim()
-                    .takeIf { it == "L" || it == "R" || it == "S" }
+            val handCode = pitchHands[id]
             val status = p.path("status").path("description").asText().takeIf { it.isNotBlank() }
 
             if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@flatMap emptyList()
