@@ -145,14 +145,7 @@ class MLBRosterService {
         return teams.flatMap { team ->
             val result =
                 try {
-                    val active = fetchRoster(team, "active", pitchHands)
-                    val fortyMan = fetchRoster(team, "40Man", pitchHands)
-                    val activeKeys = active.map { it.mlbamId to it.position }.toSet()
-                    val inactive =
-                        fortyMan
-                            .filter { (it.mlbamId to it.position) !in activeKeys }
-                            .map { it.copy(onActiveRoster = false) }
-                    active + inactive
+                    fetchRoster(team, pitchHands)
                 } catch (e: Exception) {
                     log.warn("Failed to fetch roster for ${team.name}: ${e.message}")
                     emptyList()
@@ -207,10 +200,9 @@ class MLBRosterService {
 
     private fun fetchRoster(
         team: MLBTeam,
-        rosterType: String,
         pitchHands: Map<Int, String>,
     ): List<MLBPlayer> {
-        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/$rosterType"
+        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/40Man"
         val json = get(url)
         val root = mapper.readTree(json)
 
@@ -222,16 +214,43 @@ class MLBRosterService {
             val posAbbr = pos.path("abbreviation").asText()
             val handCode = pitchHands[id]
             val status = p.path("status").path("description").asText().takeIf { it.isNotBlank() }
+            val onActiveRoster = p.path("status").path("code").asText() == "A"
 
             if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@flatMap emptyList()
 
             if (posAbbr == "TWP") {
                 listOf(
-                    MLBPlayer(mlbamId = id, fullName = name, position = "SP", throwingHand = handCode, team = team, rosterStatus = status),
-                    MLBPlayer(mlbamId = id, fullName = name, position = "DH", throwingHand = handCode, team = team, rosterStatus = status),
+                    MLBPlayer(
+                        mlbamId = id,
+                        fullName = name,
+                        position = "SP",
+                        throwingHand = handCode,
+                        team = team,
+                        onActiveRoster = onActiveRoster,
+                        rosterStatus = status,
+                    ),
+                    MLBPlayer(
+                        mlbamId = id,
+                        fullName = name,
+                        position = "DH",
+                        throwingHand = handCode,
+                        team = team,
+                        onActiveRoster = onActiveRoster,
+                        rosterStatus = status,
+                    ),
                 )
             } else {
-                listOf(MLBPlayer(mlbamId = id, fullName = name, position = posAbbr, throwingHand = handCode, team = team, rosterStatus = status))
+                listOf(
+                    MLBPlayer(
+                        mlbamId = id,
+                        fullName = name,
+                        position = posAbbr,
+                        throwingHand = handCode,
+                        team = team,
+                        onActiveRoster = onActiveRoster,
+                        rosterStatus = status,
+                    ),
+                )
             }
         }
     }
@@ -250,7 +269,7 @@ class MLBRosterService {
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             lastStatus = response.statusCode()
             if (lastStatus == 200) return response.body()
-            if (lastStatus != 429 && lastStatus < 500) {
+            if (lastStatus != 429 && lastStatus != 406 && lastStatus < 500) {
                 throw IOException("HTTP $lastStatus from $url")
             }
             if (attempt < MAX_RETRIES) Thread.sleep(RETRY_DELAY_MS * attempt)

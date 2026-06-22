@@ -56,12 +56,23 @@ class DailyPlayerService(
     fun onStartup() {
         Thread {
             try {
-                refreshRoster()
+                refreshRosterUntilReady()
                 curateUpcomingDays()
             } catch (e: Exception) {
                 log.error("Startup curation failed", e)
             }
         }.start()
+    }
+
+    private fun refreshRosterUntilReady() {
+        var delaySeconds = 60L
+        while (rosterCache.isEmpty()) {
+            refreshRoster()
+            if (rosterCache.isNotEmpty()) return
+            log.warn("Roster cache still empty after refresh attempt — retrying in ${delaySeconds}s")
+            Thread.sleep(delaySeconds * 1000)
+            delaySeconds = (delaySeconds * 2).coerceAtMost(1800)
+        }
     }
 
     @Scheduled(cron = "\${savantle.curator.cron:0 0 4 * * *}")
