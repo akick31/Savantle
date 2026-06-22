@@ -5,6 +5,7 @@ import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.model.MLBTeam
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -14,6 +15,12 @@ import java.time.LocalDate
 
 @Service
 class MLBRosterService {
+    companion object {
+        private const val MAX_RETRIES = 3
+        private const val RETRY_DELAY_MS = 1000L
+        private const val ROSTER_FETCH_PACING_MS = 150L
+    }
+
     private val log = LoggerFactory.getLogger(MLBRosterService::class.java)
     private val client =
         HttpClient.newBuilder()
@@ -136,19 +143,22 @@ class MLBRosterService {
         val pitchHands = fetchPitchHands(year)
 
         return teams.flatMap { team ->
-            try {
-                val active = fetchRoster(team, "active", pitchHands)
-                val fortyMan = fetchRoster(team, "40Man", pitchHands)
-                val activeKeys = active.map { it.mlbamId to it.position }.toSet()
-                val inactive =
-                    fortyMan
-                        .filter { (it.mlbamId to it.position) !in activeKeys }
-                        .map { it.copy(onActiveRoster = false) }
-                active + inactive
-            } catch (e: Exception) {
-                log.warn("Failed to fetch roster for ${team.name}: ${e.message}")
-                emptyList()
-            }
+            val result =
+                try {
+                    val active = fetchRoster(team, "active", pitchHands)
+                    val fortyMan = fetchRoster(team, "40Man", pitchHands)
+                    val activeKeys = active.map { it.mlbamId to it.position }.toSet()
+                    val inactive =
+                        fortyMan
+                            .filter { (it.mlbamId to it.position) !in activeKeys }
+                            .map { it.copy(onActiveRoster = false) }
+                    active + inactive
+                } catch (e: Exception) {
+                    log.warn("Failed to fetch roster for ${team.name}: ${e.message}")
+                    emptyList()
+                }
+            Thread.sleep(ROSTER_FETCH_PACING_MS)
+            result
         }
     }
 
@@ -234,6 +244,17 @@ class MLBRosterService {
                 .header("User-Agent", "Mozilla/5.0")
                 .GET()
                 .build()
-        return client.send(request, HttpResponse.BodyHandlers.ofString()).body()
+
+        var lastStatus = -1
+        for (attempt in 1..MAX_RETRIES) {
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            lastStatus = response.statusCode()
+            if (lastStatus == 200) return response.body()
+            if (lastStatus != 429 && lastStatus < 500) {
+                throw IOException("HTTP $lastStatus from $url")
+            }
+            if (attempt < MAX_RETRIES) Thread.sleep(RETRY_DELAY_MS * attempt)
+        }
+        throw IOException("HTTP $lastStatus from $url after $MAX_RETRIES attempts")
     }
 }

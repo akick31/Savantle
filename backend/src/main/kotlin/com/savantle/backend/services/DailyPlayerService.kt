@@ -35,6 +35,7 @@ class DailyPlayerService(
     companion object {
         private const val LIVE_SCREENSHOT_TTL_HOURS = 24L
         private const val SEASON_LENGTH_DAYS = 183.0
+        private const val MIN_EXPECTED_ROSTER_SIZE = 500
     }
 
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)
@@ -138,11 +139,17 @@ class DailyPlayerService(
     private fun refreshRoster() {
         try {
             val year = LocalDate.now().year
-            val players = mlbRosterService.fetchActiveRosters()
-            if (players.isNotEmpty()) {
+            var players = mlbRosterService.fetchActiveRosters()
+            if (players.size < MIN_EXPECTED_ROSTER_SIZE) {
+                log.warn("Roster fetch returned only ${players.size} players (expected >= $MIN_EXPECTED_ROSTER_SIZE) — retrying once")
+                players = mlbRosterService.fetchActiveRosters()
+            }
+            if (players.size >= MIN_EXPECTED_ROSTER_SIZE) {
                 rosterCache = players
                 rosterCacheDate = LocalDate.now()
                 log.info("Roster refreshed: ${players.size} active players")
+            } else if (players.isNotEmpty()) {
+                log.warn("Roster fetch still only ${players.size} players after retry — keeping existing cache of ${rosterCache.size}")
             }
             if (seasonStartDate == null) {
                 seasonStartDate = mlbRosterService.fetchSeasonStartDate(year)
