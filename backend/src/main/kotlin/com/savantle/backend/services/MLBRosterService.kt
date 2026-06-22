@@ -1,5 +1,6 @@
 package com.savantle.backend.services
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.model.MLBTeam
@@ -14,6 +15,8 @@ class MLBRosterService {
         private const val MAX_RETRIES = 3
         private const val RETRY_DELAY_MS = 1000L
         private const val ROSTER_FETCH_PACING_MS = 150L
+        private const val STATS_PAGE_SIZE = 100
+        private const val STATS_PAGE_PACING_MS = 150L
         private const val FETCH_SCRIPT_PATH = "scripts/fetch_url.py"
     }
 
@@ -53,17 +56,10 @@ class MLBRosterService {
         val qualified = mutableSetOf<Int>()
 
         try {
-            val battingJson =
-                get(
-                    "https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting" +
-                        "&gameType=R&season=$year&limit=5000&playerPool=All",
-                )
-            mapper.readTree(battingJson).path("stats").forEach { group ->
-                group.path("splits").forEach { split ->
-                    val id = split.path("player").path("id").asInt()
-                    val pa = split.path("stat").path("plateAppearances").asInt()
-                    if (id > 0 && pa >= minBatterPa) qualified.add(id)
-                }
+            fetchAllStatSplits(year, "hitting").forEach { split ->
+                val id = split.path("player").path("id").asInt()
+                val pa = split.path("stat").path("plateAppearances").asInt()
+                if (id > 0 && pa >= minBatterPa) qualified.add(id)
             }
             log.info("Qualified batters (PA >= $minBatterPa): ${qualified.size}")
         } catch (e: Exception) {
@@ -72,27 +68,45 @@ class MLBRosterService {
 
         val beforePitching = qualified.size
         try {
-            val pitchingJson =
-                get(
-                    "https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching" +
-                        "&gameType=R&season=$year&limit=5000&playerPool=All",
-                )
-            mapper.readTree(pitchingJson).path("stats").forEach { group ->
-                group.path("splits").forEach { split ->
-                    val id = split.path("player").path("id").asInt()
-                    val stat = split.path("stat")
-                    val ip = parseInningsPitched(stat.path("inningsPitched").asText("0"))
-                    val gs = stat.path("gamesStarted").asInt(0)
-                    val minIp = if (gs > 0) minStarterIp else minRelieverIp
-                    if (id > 0 && ip >= minIp) qualified.add(id)
-                }
+            fetchAllStatSplits(year, "pitching").forEach { split ->
+                val id = split.path("player").path("id").asInt()
+                val stat = split.path("stat")
+                val ip = parseInningsPitched(stat.path("inningsPitched").asText("0"))
+                val gs = stat.path("gamesStarted").asInt(0)
+                val minIp = if (gs > 0) minStarterIp else minRelieverIp
+                if (id > 0 && ip >= minIp) qualified.add(id)
             }
-            log.info("Qualified pitchers (starters >= $minStarterIp IP, relievers >= $minRelieverIp IP): ${qualified.size - beforePitching}")
+            log.info(
+                "Qualified pitchers (starters >= $minStarterIp IP, relievers >= $minRelieverIp IP): " +
+                    "${qualified.size - beforePitching}",
+            )
         } catch (e: Exception) {
             log.warn("Failed to fetch pitching qualification stats: ${e.message}")
         }
 
         return qualified
+    }
+
+    private fun fetchAllStatSplits(
+        year: Int,
+        group: String,
+    ): List<JsonNode> {
+        val splits = mutableListOf<JsonNode>()
+        var offset = 0
+        while (true) {
+            val json =
+                get(
+                    "https://statsapi.mlb.com/api/v1/stats?stats=season&group=$group" +
+                        "&gameType=R&season=$year&limit=$STATS_PAGE_SIZE&offset=$offset&playerPool=All",
+                )
+            val page = mutableListOf<JsonNode>()
+            mapper.readTree(json).path("stats").forEach { g -> g.path("splits").forEach { page.add(it) } }
+            splits.addAll(page)
+            if (page.size < STATS_PAGE_SIZE) break
+            offset += STATS_PAGE_SIZE
+            Thread.sleep(STATS_PAGE_PACING_MS)
+        }
+        return splits
     }
 
     private fun parseInningsPitched(ip: String): Double {
