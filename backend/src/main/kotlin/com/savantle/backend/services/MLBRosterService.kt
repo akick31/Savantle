@@ -6,11 +6,6 @@ import com.savantle.backend.model.MLBTeam
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.IOException
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.time.Duration
 import java.time.LocalDate
 
 @Service
@@ -19,14 +14,10 @@ class MLBRosterService {
         private const val MAX_RETRIES = 3
         private const val RETRY_DELAY_MS = 1000L
         private const val ROSTER_FETCH_PACING_MS = 150L
+        private const val FETCH_SCRIPT_PATH = "scripts/fetch_url.py"
     }
 
     private val log = LoggerFactory.getLogger(MLBRosterService::class.java)
-    private val client =
-        HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build()
     private val mapper = ObjectMapper()
 
     private val divisionMap =
@@ -256,24 +247,25 @@ class MLBRosterService {
     }
 
     private fun get(url: String): String {
-        val request =
-            HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(15))
-                .header("User-Agent", "Mozilla/5.0")
-                .GET()
-                .build()
-
-        var lastStatus = -1
+        var lastError = ""
         for (attempt in 1..MAX_RETRIES) {
-            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-            lastStatus = response.statusCode()
-            if (lastStatus == 200) return response.body()
-            if (lastStatus != 429 && lastStatus != 406 && lastStatus < 500) {
-                throw IOException("HTTP $lastStatus from $url")
-            }
+            val (exitCode, stdout, stderr) = runFetchScript(url)
+            if (exitCode == 0) return stdout
+            lastError = stderr.trim()
+
+            val status = Regex("HTTP_(\\d+)").find(lastError)?.groupValues?.get(1)?.toIntOrNull()
+            val retryable = status == null || status == 429 || status == 406 || status >= 500
+            if (!retryable) throw IOException("Fetch failed for $url: $lastError")
             if (attempt < MAX_RETRIES) Thread.sleep(RETRY_DELAY_MS * attempt)
         }
-        throw IOException("HTTP $lastStatus from $url after $MAX_RETRIES attempts")
+        throw IOException("Fetch failed for $url after $MAX_RETRIES attempts: $lastError")
+    }
+
+    private fun runFetchScript(url: String): Triple<Int, String, String> {
+        val process = ProcessBuilder("python3", FETCH_SCRIPT_PATH, url).start()
+        val stdout = process.inputStream.bufferedReader().readText()
+        val stderr = process.errorStream.bufferedReader().readText()
+        val exitCode = process.waitFor()
+        return Triple(exitCode, stdout, stderr)
     }
 }
