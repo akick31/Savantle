@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStats } from '../hooks/useStats';
 import { useSettings } from '../hooks/useSettings';
@@ -10,7 +11,10 @@ import ProjectsModal from '../components/modals/ProjectsModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
 import GlobalStatsModal from '../components/modals/GlobalStatsModal';
 import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
+import ApiNoticeModal, { API_NOTICE_ACTIVE } from '../components/modals/ApiNoticeModal';
 import { GameMode, ModalId } from '../types';
+
+const API_NOTICE_SEEN_KEY = 'savantle-api-notice-seen';
 
 interface ShellProps {
   gameMode: GameMode;
@@ -22,6 +26,14 @@ export default function Shell({ gameMode, children }: ShellProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { stats } = useStats();
   const { settings, updateSettings } = useSettings();
+  const [apiNoticeOpen, setApiNoticeOpen] = useState(false);
+
+  useEffect(() => {
+    if (!API_NOTICE_ACTIVE) return;
+    if (localStorage.getItem(API_NOTICE_SEEN_KEY)) return;
+    localStorage.setItem(API_NOTICE_SEEN_KEY, '1');
+    setApiNoticeOpen(true);
+  }, []);
 
   const activeModal = searchParams.get('modal') as ModalId | null;
 
@@ -48,6 +60,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
         onRandom={() => navigate('/random')}
         gameMode={gameMode}
         onBackToToday={() => navigate('/')}
+        onApiNotice={API_NOTICE_ACTIVE ? () => setApiNoticeOpen(true) : undefined}
       />
 
       {children}
@@ -108,6 +121,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <ReplayPickerModal open={activeModal === 'replay-picker'} onClose={closeModal} onSelect={handleReplaySelect} />
       <GlobalStatsModal open={activeModal === 'global-stats'} onClose={closeModal} />
       <DowntimeApologyModal />
+      <ApiNoticeModal open={apiNoticeOpen} onClose={() => setApiNoticeOpen(false)} />
     </div>
   );
 }

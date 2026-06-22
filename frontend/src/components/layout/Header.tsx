@@ -9,6 +9,7 @@ interface HeaderProps {
   onRandom: () => void;
   gameMode?: GameMode;
   onBackToToday?: () => void;
+  onApiNotice?: () => void;
 }
 
 export default function Header({
@@ -20,6 +21,7 @@ export default function Header({
   onRandom,
   gameMode = 'daily',
   onBackToToday,
+  onApiNotice,
 }: HeaderProps) {
   const iconBtn = "p-2 text-sv-muted hover:text-sv-text transition-colors";
   const textBtn = (active: boolean) =>
@@ -30,6 +32,15 @@ export default function Header({
       <h1 className="text-xl md:text-2xl font-pixel text-sv-accent text-center">
         Savantle
       </h1>
+
+      {onApiNotice && (
+        <button
+          onClick={onApiNotice}
+          className="w-full text-center text-xs font-medium text-sv-yellow bg-sv-yellow/10 border border-sv-yellow/30 rounded-lg py-1.5 hover:bg-sv-yellow/20 transition-colors"
+        >
+          ⚠ Player search issue, tap for details
+        </button>
+      )}
 
       <div className="flex items-center justify-center gap-1">
         <button onClick={onHowToPlay} className={iconBtn} aria-label="How to play" title="How to play">
