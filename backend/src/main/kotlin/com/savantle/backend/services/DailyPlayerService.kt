@@ -224,22 +224,22 @@ class DailyPlayerService(
 
     @Transactional
     fun curateUpcomingDays() {
-        val futureDate = LocalDate.now().plusDays(daysAhead.toLong())
         val players = rosterCache
         if (players.isEmpty()) {
             log.warn("Roster cache empty; skipping curation")
             return
         }
-        if (dailyPlayerRepository.existsByGameDate(futureDate)) {
-            log.info("Player already curated for $futureDate")
-            return
-        }
-        val curated = curateForDate(futureDate, players)
-        if (curated != null) {
-            dailyPlayerRepository.save(curated)
-            log.info("Curated $futureDate: ${curated.fullName}")
-        } else {
-            log.warn("Could not curate a player for $futureDate")
+        val today = LocalDate.now()
+        for (offset in 0..daysAhead) {
+            val date = today.plusDays(offset.toLong())
+            if (dailyPlayerRepository.existsByGameDate(date)) continue
+            val curated = curateForDate(date, players)
+            if (curated != null) {
+                dailyPlayerRepository.save(curated)
+                log.info("Curated $date: ${curated.fullName}")
+            } else {
+                log.warn("Could not curate a player for $date")
+            }
         }
     }
 
