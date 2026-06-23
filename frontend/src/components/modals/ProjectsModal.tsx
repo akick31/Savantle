@@ -39,18 +39,16 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
             ))}
           </div>
 
-          {/* TODO: Uncomment once polyloon.com landing page is live
-        <div className="pt-2 border-t border-sv-border text-center">
-          <a
-            href="https://polyloon.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-sv-muted hover:text-sv-accent underline transition-colors"
-          >
-            See everything I'm building at polyloon.com
-          </a>
-        </div>
-        */}
+          <div className="pt-2 border-t border-sv-border text-center">
+            <a
+              href="https://polyloon.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-sv-muted hover:text-sv-accent underline transition-colors"
+            >
+              See everything I'm building at polyloon.com
+            </a>
+          </div>
         </div>
       </Modal>
   );
