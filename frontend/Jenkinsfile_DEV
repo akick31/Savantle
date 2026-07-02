@@ -57,7 +57,7 @@ pipeline {
         stage('Run New Container') {
             steps {
                 sh """
-                    docker run -d --name ${CONTAINER_NAME} \
+                    docker run --memory=256m -d --name ${CONTAINER_NAME} \
                         -p 921:921 \
                         --env-file frontend/.env \
                         --restart=always \

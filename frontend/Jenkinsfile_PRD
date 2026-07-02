@@ -22,7 +22,6 @@ pipeline {
         }
 
         stage('Bump Version & Tag') {
-            when { branch 'main' }
             steps {
                 script {
                     def latestTag = sh(
@@ -58,20 +57,6 @@ pipeline {
             }
         }
 
-        stage('Get Version') {
-            when { not { branch 'main' } }
-            steps {
-                script {
-                    def latestTag = sh(
-                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
-                        returnStdout: true
-                    ).trim()
-                    env.VERSION = latestTag
-                    currentBuild.description = "Version: ${latestTag}"
-                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${latestTag}"
-                }
-            }
-        }
 
         stage('Generate .env File') {
             steps {
@@ -97,7 +82,7 @@ pipeline {
             steps {
                 sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
                 sh """
-                    docker run -d --name ${CONTAINER_NAME_BLUE} \\
+                    docker run --memory=256m -d --name ${CONTAINER_NAME_BLUE} \\
                         -p ${env.BLUE_HOST_PORT}:999 \\
                         --env-file frontend/.env \\
                         ${IMAGE_NAME}:latest
@@ -150,7 +135,7 @@ pipeline {
                 """
                 dir('frontend') {
                     sh """
-                        docker run -d --restart=always --name ${CONTAINER_NAME} \\
+                        docker run --memory=256m -d --restart=always --name ${CONTAINER_NAME} \\
                             -p 999:999 \\
                             --env-file .env \\
                             ${IMAGE_NAME}:latest

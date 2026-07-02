@@ -105,7 +105,7 @@ pipeline {
         stage('Run Container') {
             steps {
                 // --cap-add=SYS_ADMIN allows the Chromium sandbox to use Linux user namespaces.
-                sh "docker run --network='host' --cap-add=SYS_ADMIN -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+                sh "docker run --memory=2048m --network='host' --cap-add=SYS_ADMIN -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
             }
         }
 

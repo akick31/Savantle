@@ -64,4 +64,4 @@ USER appuser
 
 EXPOSE 163
 
-ENTRYPOINT ["/usr/bin/tini", "--", "authbind", "--deep", "java", "-jar", "app.jar"]
+ENTRYPOINT ["/usr/bin/tini", "--", "authbind", "--deep", "java", "-Xmx1024m", "-jar", "app.jar"]

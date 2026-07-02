@@ -30,7 +30,6 @@ pipeline {
         }
 
         stage('Bump Version & Tag') {
-            when { branch 'main' }
             steps {
                 script {
                     def latestTag = sh(
@@ -66,20 +65,6 @@ pipeline {
             }
         }
 
-        stage('Get Version') {
-            when { not { branch 'main' } }
-            steps {
-                script {
-                    def latestTag = sh(
-                        script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
-                        returnStdout: true
-                    ).trim()
-                    env.VERSION = latestTag
-                    currentBuild.description = "Version: ${latestTag}"
-                    currentBuild.displayName = "Build #${env.BUILD_NUMBER} - ${latestTag}"
-                }
-            }
-        }
 
         stage('Build') {
             steps {
@@ -144,7 +129,7 @@ pipeline {
             steps {
                 sh "docker rm -f ${CONTAINER_NAME_BLUE} || true"
                 // --cap-add=SYS_ADMIN allows the Chromium sandbox to use Linux user namespaces.
-                sh "docker run -d --cap-add=SYS_ADMIN --name ${CONTAINER_NAME_BLUE} -p ${env.BLUE_HOST_PORT}:163 ${IMAGE_NAME}:${DOCKERFILE}"
+                sh "docker run --memory=2048m -d --cap-add=SYS_ADMIN --name ${CONTAINER_NAME_BLUE} -p ${env.BLUE_HOST_PORT}:163 ${IMAGE_NAME}:${DOCKERFILE}"
             }
         }
 
@@ -191,7 +176,7 @@ pipeline {
                 sh "docker rm ${CONTAINER_NAME} || true"
                 sh "docker stop ${CONTAINER_NAME_BLUE} || true"
                 sh "docker rm ${CONTAINER_NAME_BLUE} || true"
-                sh "docker run --network='host' --cap-add=SYS_ADMIN -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
+                sh "docker run --memory=2048m --network='host' --cap-add=SYS_ADMIN -d --restart=always --name ${CONTAINER_NAME} ${IMAGE_NAME}:${DOCKERFILE}"
             }
         }
 
