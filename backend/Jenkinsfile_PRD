@@ -32,10 +32,16 @@ pipeline {
         stage('Bump Version & Tag') {
             steps {
                 script {
+                    // Force a fetch of all remote tags and prune local caches
+                    sh "git fetch --tags --prune --prune-tags"
+
                     def latestTag = sh(
                         script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'",
                         returnStdout: true
                     ).trim()
+
+                    echo "Latest detected tag in history is: ${latestTag}"
+
                     def version = latestTag.replaceFirst(/^v/, '')
                     def parts   = version.tokenize('.')
                     def major   = parts[0].toInteger()
@@ -52,6 +58,8 @@ pipeline {
                     }
 
                     def newVersion = "v${major}.${minor}.${patch}"
+                    echo "New version calculated: ${newVersion}"
+
                     sh """
                         git config user.email "jenkins@boxscore.build"
                         git config user.name  "Jenkins"
