@@ -72,12 +72,17 @@ class MLBRosterService {
         return batterPa to pitcherLines
     }
 
+    /**
+     * Baseball Savant's leaderboard has proven far more reliable than statsapi's bulk /stats
+     * endpoint (a different host, so it survives statsapi-wide WAF issues), so it's tried first;
+     * statsapi is kept as a fallback in case it recovers.
+     */
     fun fetchQualificationStatsWithFallback(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
         return try {
-            fetchQualificationStats(year).also { log.info("Qualification stats source: statsapi bulk") }
-        } catch (e: Exception) {
-            log.warn("Bulk statsapi qualification stats failed (${e.message}) — falling back to Baseball Savant")
             fetchQualificationStatsFromSavant(year).also { log.info("Qualification stats source: Baseball Savant CSV") }
+        } catch (e: Exception) {
+            log.warn("Baseball Savant qualification stats failed (${e.message}) — falling back to statsapi bulk")
+            fetchQualificationStats(year).also { log.info("Qualification stats source: statsapi bulk") }
         }
     }
 
@@ -199,26 +204,75 @@ class MLBRosterService {
         }
     }
 
+    private data class RosterStatusEntry(val onActiveRoster: Boolean, val description: String?)
+
+    /**
+     * Primary roster source is the single bulk /sports/1/players call — one request covering
+     * all 30 teams, proven far more reliable than 30 sequential per-team calls. It has no
+     * roster-status field, so every player starts as onActiveRoster=true. The per-team
+     * /roster/40Man calls are then used only to *enrich* confirmed matches with accurate
+     * active/IL/optioned status. A player absent from that team's 40-man response is left at
+     * the bulk default rather than flipped to inactive — the two sources can disagree slightly
+     * on team assignment (e.g. right after a trade), and a false "not on roster" would
+     * incorrectly hide an actually-active player.
+     */
     fun fetchActiveRosters(): List<MLBPlayer> {
         val year = LocalDate.now().year
         val teams = fetchTeams(year)
         log.info("Found ${teams.size} MLB teams for $year")
-        val pitchHands = fetchPitchHands(year)
 
-        val players = mutableListOf<MLBPlayer>()
+        val players = fetchAllPlayers(year, teams.associateBy { it.id })
+        val statusByTeam = fetchRosterStatuses(teams)
+
+        return players.map { player ->
+            val status = statusByTeam[player.team.id]?.get(player.mlbamId) ?: return@map player
+            player.copy(onActiveRoster = status.onActiveRoster, rosterStatus = status.description)
+        }
+    }
+
+    private fun fetchAllPlayers(
+        year: Int,
+        teamsById: Map<Int, MLBTeam>,
+    ): List<MLBPlayer> {
+        val json = get("https://statsapi.mlb.com/api/v1/sports/1/players?season=$year")
+
+        return mapper.readTree(json).path("people").flatMap { p ->
+            val id = p.path("id").asInt()
+            val name = p.path("fullName").asText()
+            val posAbbr = p.path("primaryPosition").path("abbreviation").asText()
+            val team = teamsById[p.path("currentTeam").path("id").asInt()]
+            val handCode =
+                p.path("pitchHand").path("code").asText().uppercase().trim()
+                    .takeIf { it == "L" || it == "R" || it == "S" }
+
+            if (id <= 0 || name.isBlank() || posAbbr.isBlank() || team == null) return@flatMap emptyList()
+
+            if (posAbbr == "TWP") {
+                listOf(
+                    MLBPlayer(mlbamId = id, fullName = name, position = "SP", throwingHand = handCode, team = team),
+                    MLBPlayer(mlbamId = id, fullName = name, position = "DH", throwingHand = handCode, team = team),
+                )
+            } else {
+                listOf(MLBPlayer(mlbamId = id, fullName = name, position = posAbbr, throwingHand = handCode, team = team))
+            }
+        }
+    }
+
+    private fun fetchRosterStatuses(teams: List<MLBTeam>): Map<Int, Map<Int, RosterStatusEntry>> {
+        val result = mutableMapOf<Int, Map<Int, RosterStatusEntry>>()
         var remaining = teams
         var pass = 1
         while (remaining.isNotEmpty() && pass <= 2) {
             if (pass > 1) {
-                log.warn("${remaining.size} team rosters failed — retrying after ${ROSTER_COOLDOWN_MS / 1000}s cooldown")
+                log.warn("${remaining.size} team roster-status fetches failed — retrying after ${ROSTER_COOLDOWN_MS / 1000}s cooldown")
                 Thread.sleep(ROSTER_COOLDOWN_MS)
             }
             val failed = mutableListOf<MLBTeam>()
             for (team in remaining) {
                 try {
-                    players.addAll(fetchRoster(team, pitchHands))
+                    result[team.id] = fetchRosterStatus(team)
                 } catch (e: Exception) {
-                    log.warn("Failed to fetch roster for ${team.name}: ${e.message}")
+                    log.warn("Failed to fetch roster status for ${team.name}: ${e.message}")
                     failed.add(team)
                 }
                 Thread.sleep(ROSTER_FETCH_PACING_MS)
@@ -226,25 +280,24 @@ class MLBRosterService {
             remaining = failed
             pass++
         }
-        return players
+        if (remaining.isNotEmpty()) {
+            log.warn("${remaining.size} teams' roster status unavailable — their players keep the bulk on-roster default")
+        }
+        return result
     }
 
-    private fun fetchPitchHands(year: Int): Map<Int, String> {
-        return try {
-            val json = get("https://statsapi.mlb.com/api/v1/sports/1/players?season=$year")
-            val hands = mutableMapOf<Int, String>()
-            mapper.readTree(json).path("people").forEach { p ->
-                val id = p.path("id").asInt()
-                val code =
-                    p.path("pitchHand").path("code").asText().uppercase().trim()
-                        .takeIf { it == "L" || it == "R" || it == "S" }
-                if (id > 0 && code != null) hands[id] = code
-            }
-            hands
-        } catch (e: Exception) {
-            log.warn("Failed to fetch pitch hands: ${e.message}")
-            emptyMap()
+    private fun fetchRosterStatus(team: MLBTeam): Map<Int, RosterStatusEntry> {
+        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/40Man"
+        val json = get(url)
+        val statuses = mutableMapOf<Int, RosterStatusEntry>()
+        mapper.readTree(json).path("roster").forEach { p ->
+            val id = p.path("person").path("id").asInt()
+            if (id <= 0) return@forEach
+            val onActiveRoster = p.path("status").path("code").asText() == "A"
+            val description = p.path("status").path("description").asText().takeIf { it.isNotBlank() }
+            statuses[id] = RosterStatusEntry(onActiveRoster, description)
         }
+        return statuses
     }
 
     private fun fetchTeams(year: Int): List<MLBTeam> {
@@ -269,63 +322,6 @@ class MLBRosterService {
             val division = divisionMap[divisionId] ?: return@mapNotNull null
 
             MLBTeam(id = id, name = name, abbreviation = abbr, league = league, division = division)
-        }
-    }
-
-    private fun fetchRoster(
-        team: MLBTeam,
-        pitchHands: Map<Int, String>,
-    ): List<MLBPlayer> {
-        val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/40Man"
-        val json = get(url)
-        val root = mapper.readTree(json)
-
-        return root.path("roster").flatMap { p ->
-            val person = p.path("person")
-            val pos = p.path("position")
-            val id = person.path("id").asInt()
-            val name = person.path("fullName").asText()
-            val posAbbr = pos.path("abbreviation").asText()
-            val handCode = pitchHands[id]
-            val status = p.path("status").path("description").asText().takeIf { it.isNotBlank() }
-            val onActiveRoster = p.path("status").path("code").asText() == "A"
-
-            if (id <= 0 || name.isBlank() || posAbbr.isBlank()) return@flatMap emptyList()
-
-            if (posAbbr == "TWP") {
-                listOf(
-                    MLBPlayer(
-                        mlbamId = id,
-                        fullName = name,
-                        position = "SP",
-                        throwingHand = handCode,
-                        team = team,
-                        onActiveRoster = onActiveRoster,
-                        rosterStatus = status,
-                    ),
-                    MLBPlayer(
-                        mlbamId = id,
-                        fullName = name,
-                        position = "DH",
-                        throwingHand = handCode,
-                        team = team,
-                        onActiveRoster = onActiveRoster,
-                        rosterStatus = status,
-                    ),
-                )
-            } else {
-                listOf(
-                    MLBPlayer(
-                        mlbamId = id,
-                        fullName = name,
-                        position = posAbbr,
-                        throwingHand = handCode,
-                        team = team,
-                        onActiveRoster = onActiveRoster,
-                        rosterStatus = status,
-                    ),
-                )
-            }
         }
     }
 

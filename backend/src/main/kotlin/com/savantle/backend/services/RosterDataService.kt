@@ -128,15 +128,11 @@ class RosterDataService(
 
     private fun fetchFreshRoster(): List<MLBPlayer>? {
         return try {
-            var players = mlbRosterService.fetchActiveRosters()
-            if (players.size < MIN_EXPECTED_ROSTER_SIZE) {
-                log.warn("Roster fetch returned only ${players.size} players (expected >= $MIN_EXPECTED_ROSTER_SIZE) — retrying once")
-                players = mlbRosterService.fetchActiveRosters()
-            }
+            val players = mlbRosterService.fetchActiveRosters()
             if (players.size >= MIN_EXPECTED_ROSTER_SIZE) {
                 players
             } else {
-                log.warn("Roster fetch still only ${players.size} players after retry — keeping previous roster")
+                log.warn("Roster fetch returned only ${players.size} players (expected >= $MIN_EXPECTED_ROSTER_SIZE) — keeping previous roster")
                 null
             }
         } catch (e: Exception) {

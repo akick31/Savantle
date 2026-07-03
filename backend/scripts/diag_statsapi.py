@@ -19,7 +19,7 @@ PROBES = [
     ("teams (used)", f"https://statsapi.mlb.com/api/v1/teams?sportId=1&season={YEAR}"),
     ("roster 40Man (used)", f"https://statsapi.mlb.com/api/v1/teams/119/roster/40Man"),
     ("roster + hydrate (known bad)", f"https://statsapi.mlb.com/api/v1/teams/119/roster/40Man?hydrate=person"),
-    ("all players / pitch hands (used)", f"https://statsapi.mlb.com/api/v1/sports/1/players?season={YEAR}"),
+    ("all players — pitch hands + roster fallback (used)", f"https://statsapi.mlb.com/api/v1/sports/1/players?season={YEAR}"),
     ("season dates (used)", f"https://statsapi.mlb.com/api/v1/seasons/{YEAR}?sportId=1"),
     (
         "bulk hitting stats (used)",
