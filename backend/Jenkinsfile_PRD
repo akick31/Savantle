@@ -37,7 +37,7 @@ pipeline {
 
                     // 1. Try to find the closest tag in the current commit path (looks for both annotated & lightweight)
                     def latestTag = sh(
-                        script: "git describe --abbrev=0 --tags 2>/dev/null",
+                        script: "git describe --abbrev=0 --tags 2>/dev/null || echo ''",
                         returnStdout: true
                     ).trim()
 
