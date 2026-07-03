@@ -21,8 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue
 class RandomGameService(
     private val screenshotService: ScreenshotService,
     private val dailyPlayerRepository: DailyPlayerRepository,
-    private val dailyPlayerService: DailyPlayerService,
-    private val mlbRosterService: MLBRosterService,
+    private val rosterDataService: RosterDataService,
     @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int,
 ) {
     companion object {
@@ -80,7 +79,7 @@ class RandomGameService(
 
     private fun tryFillPool() {
         if (gamePool.size >= POOL_TARGET_SIZE) return
-        if (dailyPlayerService.getRosterCache().isEmpty()) {
+        if (rosterDataService.players().isEmpty()) {
             log.info("Roster not ready yet — retrying pool fill in 30s")
             poolExecutor.submit {
                 Thread.sleep(30_000)
@@ -95,10 +94,10 @@ class RandomGameService(
 
     private fun captureOneGame(): RandomGame? {
         val excludedIds = recentDailyMlbamIds() + upcomingDailyMlbamIds() + gamePool.map { it.mlbamId }.toSet()
-        val pool = dailyPlayerService.buildRandomPool(excludedIds)
+        val pool = rosterDataService.buildRandomPool(excludedIds)
 
         if (pool.isEmpty()) {
-            if (dailyPlayerService.getRosterCache().isEmpty()) {
+            if (rosterDataService.players().isEmpty()) {
                 log.warn("No eligible players for random game — roster not loaded yet")
             } else {
                 log.warn("No eligible players for random game")
@@ -112,7 +111,7 @@ class RandomGameService(
                 screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
                     ?: continue
 
-            val pitcherStats = if (isPitcher) mlbRosterService.fetchPitcherStats(candidate.mlbamId, LocalDate.now().year) else null
+            val pitcherStats = if (isPitcher) rosterDataService.pitcherLineFor(candidate.mlbamId, LocalDate.now().year) else null
             val gameId = UUID.randomUUID().toString()
             return RandomGame(
                 gameId = gameId,
@@ -156,7 +155,7 @@ class RandomGameService(
         if (gameOver) {
             result["playerInfo"] = PlayerUtils.buildPlayerInfo(game.toSnapshot())
         } else {
-            result["hints"] = PlayerUtils.buildHints(game.toSnapshot(), guessNumber, playerName, dailyPlayerService.getRosterCache())
+            result["hints"] = PlayerUtils.buildHints(game.toSnapshot(), guessNumber, playerName, rosterDataService.players())
         }
         return result
     }

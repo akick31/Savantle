@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.model.MLBTeam
+import com.savantle.backend.model.PitcherLine
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.IOException
@@ -13,11 +14,14 @@ import java.time.LocalDate
 class MLBRosterService {
     companion object {
         private const val MAX_RETRIES = 3
-        private const val RETRY_DELAY_MS = 1000L
-        private const val ROSTER_FETCH_PACING_MS = 150L
+        private const val RETRY_DELAY_MS = 2000L
+        private const val WAF_RETRY_DELAY_MS = 10000L
+        private const val ROSTER_FETCH_PACING_MS = 1000L
+        private const val ROSTER_COOLDOWN_MS = 60000L
         private const val STATS_PAGE_SIZE = 100
-        private const val STATS_PAGE_PACING_MS = 150L
+        private const val STATS_PAGE_PACING_MS = 1000L
         private const val FETCH_SCRIPT_PATH = "scripts/fetch_url.py"
+        private val WAF_STATUSES = setOf(403, 406, 409)
     }
 
     private val log = LoggerFactory.getLogger(MLBRosterService::class.java)
@@ -47,44 +51,98 @@ class MLBRosterService {
         }
     }
 
-    fun fetchQualifiedPlayerIds(
+    fun fetchQualificationStats(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
+        val batterPa = mutableMapOf<Int, Int>()
+        fetchAllStatSplits(year, "hitting").forEach { split ->
+            val id = split.path("player").path("id").asInt()
+            val pa = split.path("stat").path("plateAppearances").asInt()
+            if (id > 0) batterPa[id] = pa
+        }
+
+        val pitcherLines = mutableMapOf<Int, PitcherLine>()
+        fetchAllStatSplits(year, "pitching").forEach { split ->
+            val id = split.path("player").path("id").asInt()
+            val stat = split.path("stat")
+            val ip = parseInningsPitched(stat.path("inningsPitched").asText("0"))
+            val gs = stat.path("gamesStarted").asInt(0)
+            if (id > 0) pitcherLines[id] = PitcherLine(ip, gs)
+        }
+
+        log.info("Fetched qualification stats: ${batterPa.size} batters, ${pitcherLines.size} pitchers")
+        return batterPa to pitcherLines
+    }
+
+    fun fetchQualificationStatsWithFallback(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
+        return try {
+            fetchQualificationStats(year).also { log.info("Qualification stats source: statsapi bulk") }
+        } catch (e: Exception) {
+            log.warn("Bulk statsapi qualification stats failed (${e.message}) — falling back to Baseball Savant")
+            fetchQualificationStatsFromSavant(year).also { log.info("Qualification stats source: Baseball Savant CSV") }
+        }
+    }
+
+    fun fetchQualificationStatsFromSavant(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
+        val batterPa = mutableMapOf<Int, Int>()
+        for (row in parseSavantCsv(get(savantLeaderboardUrl(year, "batter", "pa")))) {
+            val id = row["player_id"]?.toIntOrNull() ?: continue
+            batterPa[id] = row["pa"]?.toIntOrNull() ?: 0
+        }
+
+        val pitcherLines = mutableMapOf<Int, PitcherLine>()
+        for (row in parseSavantCsv(get(savantLeaderboardUrl(year, "pitcher", "p_formatted_ip,p_starting_p")))) {
+            val id = row["player_id"]?.toIntOrNull() ?: continue
+            val ip = parseInningsPitched(row["p_formatted_ip"] ?: "0")
+            val gs = row["p_starting_p"]?.toIntOrNull() ?: 0
+            pitcherLines[id] = PitcherLine(ip, gs)
+        }
+
+        if (batterPa.isEmpty() || pitcherLines.isEmpty()) {
+            throw IOException("Savant qualification stats incomplete: ${batterPa.size} batters, ${pitcherLines.size} pitchers")
+        }
+        log.info("Fetched Savant qualification stats: ${batterPa.size} batters, ${pitcherLines.size} pitchers")
+        return batterPa to pitcherLines
+    }
+
+    private fun savantLeaderboardUrl(
         year: Int,
-        minBatterPa: Int,
-        minStarterIp: Double,
-        minRelieverIp: Double,
-    ): Set<Int> {
-        val qualified = mutableSetOf<Int>()
+        type: String,
+        selections: String,
+    ): String {
+        val sortCol = selections.substringBefore(",")
+        return "https://baseballsavant.mlb.com/leaderboard/custom?year=$year&type=$type&filter=&min=1" +
+            "&selections=$selections&chart=false&x=$sortCol&y=$sortCol&r=no&chartType=beeswarm&sort=1&sortDir=desc&csv=true"
+    }
 
-        try {
-            fetchAllStatSplits(year, "hitting").forEach { split ->
-                val id = split.path("player").path("id").asInt()
-                val pa = split.path("stat").path("plateAppearances").asInt()
-                if (id > 0 && pa >= minBatterPa) qualified.add(id)
+    internal fun parseSavantCsv(csv: String): List<Map<String, String>> {
+        val lines = csv.removePrefix("\uFEFF").lineSequence().filter { it.isNotBlank() }.toList()
+        if (lines.size < 2) return emptyList()
+        val header = parseCsvLine(lines.first())
+        return lines.drop(1).map { line -> header.zip(parseCsvLine(line)).toMap() }
+    }
+
+    private fun parseCsvLine(line: String): List<String> {
+        val fields = mutableListOf<String>()
+        val current = StringBuilder()
+        var inQuotes = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            when {
+                c == '"' && inQuotes && i + 1 < line.length && line[i + 1] == '"' -> {
+                    current.append('"')
+                    i++
+                }
+                c == '"' -> inQuotes = !inQuotes
+                c == ',' && !inQuotes -> {
+                    fields.add(current.toString())
+                    current.clear()
+                }
+                else -> current.append(c)
             }
-            log.info("Qualified batters (PA >= $minBatterPa): ${qualified.size}")
-        } catch (e: Exception) {
-            log.warn("Failed to fetch batting qualification stats: ${e.message}")
+            i++
         }
-
-        val beforePitching = qualified.size
-        try {
-            fetchAllStatSplits(year, "pitching").forEach { split ->
-                val id = split.path("player").path("id").asInt()
-                val stat = split.path("stat")
-                val ip = parseInningsPitched(stat.path("inningsPitched").asText("0"))
-                val gs = stat.path("gamesStarted").asInt(0)
-                val minIp = if (gs > 0) minStarterIp else minRelieverIp
-                if (id > 0 && ip >= minIp) qualified.add(id)
-            }
-            log.info(
-                "Qualified pitchers (starters >= $minStarterIp IP, relievers >= $minRelieverIp IP): " +
-                    "${qualified.size - beforePitching}",
-            )
-        } catch (e: Exception) {
-            log.warn("Failed to fetch pitching qualification stats: ${e.message}")
-        }
-
-        return qualified
+        fields.add(current.toString())
+        return fields
     }
 
     private fun fetchAllStatSplits(
@@ -147,17 +205,28 @@ class MLBRosterService {
         log.info("Found ${teams.size} MLB teams for $year")
         val pitchHands = fetchPitchHands(year)
 
-        return teams.flatMap { team ->
-            val result =
+        val players = mutableListOf<MLBPlayer>()
+        var remaining = teams
+        var pass = 1
+        while (remaining.isNotEmpty() && pass <= 2) {
+            if (pass > 1) {
+                log.warn("${remaining.size} team rosters failed — retrying after ${ROSTER_COOLDOWN_MS / 1000}s cooldown")
+                Thread.sleep(ROSTER_COOLDOWN_MS)
+            }
+            val failed = mutableListOf<MLBTeam>()
+            for (team in remaining) {
                 try {
-                    fetchRoster(team, pitchHands)
+                    players.addAll(fetchRoster(team, pitchHands))
                 } catch (e: Exception) {
                     log.warn("Failed to fetch roster for ${team.name}: ${e.message}")
-                    emptyList()
+                    failed.add(team)
                 }
-            Thread.sleep(ROSTER_FETCH_PACING_MS)
-            result
+                Thread.sleep(ROSTER_FETCH_PACING_MS)
+            }
+            remaining = failed
+            pass++
         }
+        return players
     }
 
     private fun fetchPitchHands(year: Int): Map<Int, String> {
@@ -268,9 +337,14 @@ class MLBRosterService {
             lastError = stderr.trim()
 
             val status = Regex("HTTP_(\\d+)").find(lastError)?.groupValues?.get(1)?.toIntOrNull()
-            val retryable = status == null || status == 429 || status == 406 || status >= 500
+            val isWafRejection = status in WAF_STATUSES
+            val retryable = status == null || status == 429 || isWafRejection || status >= 500
             if (!retryable) throw IOException("Fetch failed for $url: $lastError")
-            if (attempt < MAX_RETRIES) Thread.sleep(RETRY_DELAY_MS * attempt)
+            if (attempt < MAX_RETRIES) {
+                // MLB's WAF rejections (403/406/409) need a cooldown, not a quick retry
+                val delay = if (isWafRejection) WAF_RETRY_DELAY_MS else RETRY_DELAY_MS
+                Thread.sleep(delay * attempt)
+            }
         }
         throw IOException("Fetch failed for $url after $MAX_RETRIES attempts: $lastError")
     }

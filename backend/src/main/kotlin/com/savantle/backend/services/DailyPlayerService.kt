@@ -21,32 +21,21 @@ import kotlin.random.Random
 
 @Service
 class DailyPlayerService(
-    private val mlbRosterService: MLBRosterService,
+    private val rosterDataService: RosterDataService,
     private val screenshotService: ScreenshotService,
+    private val alertService: AlertService,
     private val dailyPlayerRepository: DailyPlayerRepository,
     private val entityManager: EntityManager,
     @Value("\${savantle.curator.days-ahead:7}") private val daysAhead: Int,
-    @Value("\${savantle.qualification.batter-min-pa:75}") private val minBatterPa: Int,
-    @Value("\${savantle.qualification.pitcher-min-ip:15.0}") private val minPitcherIp: Double,
-    @Value("\${savantle.qualification.starter-ip-target:120.0}") private val starterIpTarget: Double,
-    @Value("\${savantle.qualification.reliever-ip-target:50.0}") private val relieverIpTarget: Double,
-    @Value("\${savantle.qualification.early-season-days:30}") private val earlySeasonDays: Long,
 ) {
     companion object {
         private const val LIVE_SCREENSHOT_TTL_HOURS = 24L
-        private const val SEASON_LENGTH_DAYS = 183.0
-        private const val MIN_EXPECTED_ROSTER_SIZE = 500
+        private const val REPEAT_WINDOW_DAYS = 60L
+        private const val RELAXED_REPEAT_WINDOW_DAYS = 14L
+        private const val MAX_SCREENSHOT_ATTEMPTS = 15
     }
 
     private val log = LoggerFactory.getLogger(DailyPlayerService::class.java)
-
-    @Volatile private var rosterCache: List<MLBPlayer> = emptyList()
-
-    @Volatile private var rosterCacheDate: LocalDate? = null
-
-    @Volatile private var qualifiedIds: Set<Int> = emptySet()
-
-    @Volatile private var seasonStartDate: LocalDate? = null
 
     private data class CachedScreenshot(val bytes: ByteArray, val capturedAt: Instant)
 
@@ -56,7 +45,7 @@ class DailyPlayerService(
     fun onStartup() {
         Thread {
             try {
-                refreshRosterUntilReady()
+                rosterDataService.refreshUntilReady()
                 curateUpcomingDays()
             } catch (e: Exception) {
                 log.error("Startup curation failed", e)
@@ -64,21 +53,38 @@ class DailyPlayerService(
         }.start()
     }
 
-    private fun refreshRosterUntilReady() {
-        var delaySeconds = 60L
-        while (rosterCache.isEmpty()) {
-            refreshRoster()
-            if (rosterCache.isNotEmpty()) return
-            log.warn("Roster cache still empty after refresh attempt — retrying in ${delaySeconds}s")
-            Thread.sleep(delaySeconds * 1000)
-            delaySeconds = (delaySeconds * 2).coerceAtMost(1800)
-        }
-    }
-
     @Scheduled(cron = "\${savantle.curator.cron:0 0 4 * * *}")
     fun scheduledCurate() {
-        refreshRoster()
+        rosterDataService.refresh()
         curateUpcomingDays()
+        reportCurationHealth()
+    }
+
+    private fun reportCurationHealth() {
+        val today = LocalDate.now()
+        val missing = (0..daysAhead).map { today.plusDays(it.toLong()) }.filter { !dailyPlayerRepository.existsByGameDate(it) }
+        val rosterStale = !rosterDataService.isRosterUsable()
+        val statsStale = !rosterDataService.areStatsUsable()
+        if (missing.isEmpty() && !rosterStale && !statsStale) return
+
+        val body =
+            buildString {
+                if (rosterStale) {
+                    appendLine("Roster data is missing or stale — last successful fetch: ${rosterDataService.rosterTimestamp() ?: "never"}.")
+                }
+                if (statsStale) {
+                    appendLine("Qualification stats are missing or stale — last successful fetch: ${rosterDataService.statsTimestamp() ?: "never"}.")
+                }
+                if (rosterStale || statsStale) {
+                    appendLine("Run backend/scripts/diag_statsapi.py on the VPS to see which requests are failing.")
+                    appendLine()
+                }
+                if (missing.isNotEmpty()) {
+                    appendLine("No daily player is curated for: ${missing.joinToString(", ")}")
+                }
+            }
+        log.error("Curation health check failed:\n$body")
+        alertService.send("Curation needs attention", body)
     }
 
     @Scheduled(cron = "\${savantle.validator.cron:0 30 23 * * *}")
@@ -87,10 +93,18 @@ class DailyPlayerService(
         val tomorrow = LocalDate.now().plusDays(1)
         val player = dailyPlayerRepository.findByGameDate(tomorrow) ?: return
 
-        refreshRoster()
+        rosterDataService.refresh()
+        if (!rosterDataService.isRosterUsable()) {
+            log.warn("Roster data missing or stale — skipping eligibility validation for $tomorrow")
+            return
+        }
 
-        val onRoster = rosterCache.any { it.mlbamId == player.mlbamId && it.onActiveRoster }
-        val meetsQualification = isEarlySeason(tomorrow) || qualifiedIds.isEmpty() || player.mlbamId in qualifiedIds
+        val roster = rosterDataService.players()
+        val onRoster = roster.any { it.mlbamId == player.mlbamId && it.onActiveRoster }
+        val meetsQualification =
+            rosterDataService.isEarlySeason(tomorrow) ||
+                !rosterDataService.areStatsUsable() ||
+                player.mlbamId in rosterDataService.qualifiedIds()
 
         if (onRoster && meetsQualification) {
             log.info("Tomorrow's player ${player.fullName} is still eligible")
@@ -101,7 +115,7 @@ class DailyPlayerService(
         log.warn("${player.fullName} is $reason for $tomorrow — finding replacement")
 
         val replacement =
-            curateForDate(tomorrow, rosterCache.filter { it.mlbamId != player.mlbamId })
+            curateForDate(tomorrow, roster.filter { it.mlbamId != player.mlbamId })
                 ?: run {
                     log.warn("No replacement found for $tomorrow — keeping ${player.fullName}")
                     return
@@ -118,12 +132,12 @@ class DailyPlayerService(
     fun refreshNextDayScreenshot() {
         val tomorrow = LocalDate.now().plusDays(1)
         val player = dailyPlayerRepository.findByGameDate(tomorrow) ?: return
-        refreshRoster()
+        rosterDataService.refresh()
         val result = screenshotService.capturePercentiles(player.mlbamId, player.fullName, player.isPitcher)
         if (result != null) {
             player.screenshot = result.pngBytes
             player.savantUrl = result.savantUrl
-            val rosterPlayer = rosterCache.firstOrNull { it.mlbamId == player.mlbamId }
+            val rosterPlayer = rosterDataService.players().firstOrNull { it.mlbamId == player.mlbamId }
             if (rosterPlayer != null) {
                 if (rosterPlayer.team.name != player.teamName) {
                     log.info("Team change detected for ${player.fullName}: ${player.teamName} -> ${rosterPlayer.team.name}")
@@ -134,7 +148,7 @@ class DailyPlayerService(
                 player.division = rosterPlayer.team.division
             }
             if (player.isPitcher) {
-                val stats = mlbRosterService.fetchPitcherStats(player.mlbamId, tomorrow.year)
+                val stats = rosterDataService.pitcherLineFor(player.mlbamId, tomorrow.year)
                 if (stats != null) {
                     player.inningsPitched = stats.first
                     player.gamesStarted = stats.second
@@ -147,84 +161,9 @@ class DailyPlayerService(
         }
     }
 
-    private fun refreshRoster() {
-        try {
-            val year = LocalDate.now().year
-            var players = mlbRosterService.fetchActiveRosters()
-            if (players.size < MIN_EXPECTED_ROSTER_SIZE) {
-                log.warn("Roster fetch returned only ${players.size} players (expected >= $MIN_EXPECTED_ROSTER_SIZE) — retrying once")
-                players = mlbRosterService.fetchActiveRosters()
-            }
-            if (players.size >= MIN_EXPECTED_ROSTER_SIZE) {
-                rosterCache = players
-                rosterCacheDate = LocalDate.now()
-                log.info("Roster refreshed: ${players.size} active players")
-            } else if (players.isNotEmpty()) {
-                log.warn("Roster fetch still only ${players.size} players after retry — keeping existing cache of ${rosterCache.size}")
-            }
-            if (seasonStartDate == null) {
-                seasonStartDate = mlbRosterService.fetchSeasonStartDate(year)
-                log.info("Season start date: $seasonStartDate")
-            }
-            val (starterFloor, relieverFloor) = computePitcherFloors()
-            val ids = mlbRosterService.fetchQualifiedPlayerIds(year, minBatterPa, starterFloor, relieverFloor)
-            qualifiedIds = ids
-            log.info("Qualification pool: ${ids.size} players")
-        } catch (e: Exception) {
-            log.error("Failed to refresh roster", e)
-        }
-    }
-
-    private fun computePitcherFloors(): Pair<Double, Double> {
-        val start = seasonStartDate ?: return Pair(minPitcherIp, minPitcherIp)
-        val progress = ((LocalDate.now().toEpochDay() - start.toEpochDay()) / SEASON_LENGTH_DAYS).coerceIn(0.0, 1.0)
-        return Pair(
-            maxOf(minPitcherIp, progress * starterIpTarget),
-            maxOf(minPitcherIp, progress * relieverIpTarget),
-        )
-    }
-
-    fun isEarlySeason(date: LocalDate): Boolean {
-        val start = seasonStartDate ?: return true
-        return date < start.plusDays(earlySeasonDays)
-    }
-
-    private fun isPlayerEligible(player: MLBPlayer): Boolean =
-        player.onActiveRoster &&
-            (isEarlySeason(LocalDate.now()) || qualifiedIds.isEmpty() || player.mlbamId in qualifiedIds)
-
-    private fun eligibilityReason(
-        player: MLBPlayer,
-        isPitcher: Boolean,
-    ): String {
-        if (!player.onActiveRoster) {
-            return if (player.rosterStatus?.startsWith("Injured", ignoreCase = true) == true) {
-                "Warning: ${player.fullName} is currently on the IL"
-            } else {
-                "Warning: ${player.fullName} is not on an active MLB roster"
-            }
-        }
-        val threshold = if (isPitcher) "IP threshold for pitchers" else "PA threshold for batters"
-        return "Warning: ${player.fullName} hasn't reached the $threshold"
-    }
-
-    fun getRosterCache(): List<MLBPlayer> = rosterCache
-
-    fun buildRandomPool(excludedMlbamIds: Set<Int>): List<MLBPlayer> {
-        val activeRoster = rosterCache.filter { it.onActiveRoster }
-        val basePool =
-            if (!isEarlySeason(LocalDate.now()) && qualifiedIds.isNotEmpty()) {
-                val filtered = activeRoster.filter { it.mlbamId in qualifiedIds }
-                filtered.ifEmpty { activeRoster }
-            } else {
-                activeRoster
-            }
-        return basePool.filter { it.mlbamId !in excludedMlbamIds }
-    }
-
     @Transactional
     fun curateUpcomingDays() {
-        val players = rosterCache
+        val players = rosterDataService.players()
         if (players.isEmpty()) {
             log.warn("Roster cache empty; skipping curation")
             return
@@ -245,8 +184,8 @@ class DailyPlayerService(
 
     @Transactional
     fun curateAutoForDate(date: LocalDate): Map<String, Any> {
-        if (rosterCache.isEmpty() || rosterCacheDate != LocalDate.now()) refreshRoster()
-        val players = rosterCache
+        rosterDataService.ensureFreshForToday()
+        val players = rosterDataService.players()
         if (players.isEmpty()) throw IllegalStateException("Roster cache is empty")
 
         if (dailyPlayerRepository.existsByGameDate(date)) {
@@ -260,13 +199,7 @@ class DailyPlayerService(
 
         val saved = dailyPlayerRepository.save(curated)
         log.info("Auto-curated $date: ${saved.fullName}")
-        return mapOf(
-            "date" to saved.gameDate.toString(),
-            "fullName" to saved.fullName,
-            "position" to PlayerUtils.formatPosition(saved.isPitcher, saved.throwingHand, saved.position),
-            "mlbamId" to saved.mlbamId.toString(),
-            "teamName" to saved.teamName,
-        )
+        return curationSummary(saved)
     }
 
     @Transactional
@@ -277,10 +210,8 @@ class DailyPlayerService(
         require(playerName.isNotBlank()) { "Player name is required" }
         require(playerName.length <= 100) { "Player name too long" }
 
-        if (rosterCache.isEmpty() || rosterCacheDate != LocalDate.now()) {
-            refreshRoster()
-        }
-        val players = rosterCache
+        rosterDataService.ensureFreshForToday()
+        val players = rosterDataService.players()
         if (players.isEmpty()) throw IllegalStateException("Roster cache is empty")
 
         val normalized = PlayerUtils.normalizeForSearch(playerName)
@@ -288,95 +219,112 @@ class DailyPlayerService(
             players.firstOrNull { PlayerUtils.normalizeForSearch(it.fullName) == normalized }
                 ?: throw IllegalArgumentException("Player not found in current MLB roster: $playerName")
 
-        val isPitcher = candidate.position in PITCHER_POSITIONS
-        val result =
-            screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
+        val curated =
+            buildDailyPlayer(date, candidate)
                 ?: throw IllegalStateException("Could not capture screenshot for ${candidate.fullName}")
 
-        val pitcherStats = if (isPitcher) mlbRosterService.fetchPitcherStats(candidate.mlbamId, date.year) else null
         dailyPlayerRepository.deleteByGameDate(date)
         entityManager.flush()
-        val saved =
-            dailyPlayerRepository.save(
-                DailyPlayer(
-                    gameDate = date,
-                    mlbamId = candidate.mlbamId,
-                    fullName = candidate.fullName,
-                    normalizedName = PlayerUtils.normalizeForSearch(candidate.fullName),
-                    position = candidate.position,
-                    throwingHand = candidate.throwingHand,
-                    isPitcher = isPitcher,
-                    teamName = candidate.team.name,
-                    teamAbbr = candidate.team.abbreviation,
-                    league = candidate.team.league,
-                    division = candidate.team.division,
-                    savantUrl = result.savantUrl,
-                    screenshot = result.pngBytes,
-                    inningsPitched = pitcherStats?.first,
-                    gamesStarted = pitcherStats?.second,
-                ),
-            )
+        val saved = dailyPlayerRepository.save(curated)
         log.info("Manually curated $date: ${saved.fullName}")
+        return curationSummary(saved)
+    }
 
-        return mapOf(
+    private fun curationSummary(saved: DailyPlayer): Map<String, Any> =
+        mapOf(
             "date" to saved.gameDate.toString(),
             "fullName" to saved.fullName,
             "position" to PlayerUtils.formatPosition(saved.isPitcher, saved.throwingHand, saved.position),
             "mlbamId" to saved.mlbamId.toString(),
             "teamName" to saved.teamName,
         )
-    }
 
     private fun curateForDate(
         date: LocalDate,
         pool: List<MLBPlayer>,
     ): DailyPlayer? {
+        if (!rosterDataService.isRosterUsable()) {
+            log.error("Roster data missing or stale (last fetch: ${rosterDataService.rosterTimestamp()}) — refusing to curate for $date")
+            return null
+        }
+
         val activePool = pool.filter { it.onActiveRoster }
         val qualifiedPool =
-            if (isEarlySeason(date) || qualifiedIds.isEmpty()) {
-                log.info("Early season or no qualification data — using full pool for $date")
+            if (rosterDataService.isEarlySeason(date)) {
+                log.info("Early season — using full active pool for $date")
                 activePool
             } else {
+                val qualifiedIds = rosterDataService.qualifiedIds()
+                if (!rosterDataService.areStatsUsable() || qualifiedIds.isEmpty()) {
+                    log.error("Qualification data missing or stale (last fetch: ${rosterDataService.statsTimestamp()}) — refusing to curate for $date")
+                    return null
+                }
                 val filtered = activePool.filter { it.mlbamId in qualifiedIds }
                 log.info("Qualification filter: ${activePool.size} -> ${filtered.size} players for $date")
-                if (filtered.isEmpty()) activePool else filtered
+                if (filtered.isEmpty()) {
+                    log.error("No active players meet qualification thresholds — refusing to curate for $date")
+                    return null
+                }
+                filtered
             }
 
-        val recentIds =
-            dailyPlayerRepository
-                .findByGameDateBetween(date.minusDays(60), date.minusDays(1))
-                .map { it.mlbamId }
-                .toSet()
+        val recentPlayers = dailyPlayerRepository.findByGameDateBetween(date.minusDays(REPEAT_WINDOW_DAYS), date.minusDays(1))
+        val recentIds = recentPlayers.map { it.mlbamId }.toSet()
 
         val preferred = qualifiedPool.filter { it.mlbamId !in recentIds }
-        val candidates = (if (preferred.isNotEmpty()) preferred else qualifiedPool).shuffled(Random)
+        val candidatePool =
+            if (preferred.isNotEmpty()) {
+                preferred
+            } else {
+                val relaxedIds =
+                    recentPlayers
+                        .filter { it.gameDate >= date.minusDays(RELAXED_REPEAT_WINDOW_DAYS) }
+                        .map { it.mlbamId }
+                        .toSet()
+                val relaxed = qualifiedPool.filter { it.mlbamId !in relaxedIds }
+                if (relaxed.isEmpty()) {
+                    log.error("All eligible players were used within the last $RELAXED_REPEAT_WINDOW_DAYS days — refusing to curate for $date")
+                    return null
+                }
+                log.warn(
+                    "All eligible players were used within $REPEAT_WINDOW_DAYS days — " +
+                        "relaxing repeat window to $RELAXED_REPEAT_WINDOW_DAYS days for $date",
+                )
+                relaxed
+            }
+        val candidates = candidatePool.shuffled(Random)
 
-        for (candidate in candidates) {
-            val isPitcher = candidate.position in PITCHER_POSITIONS
-            val result =
-                screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher)
-                    ?: continue
-
-            val pitcherStats = if (isPitcher) mlbRosterService.fetchPitcherStats(candidate.mlbamId, date.year) else null
-            return DailyPlayer(
-                gameDate = date,
-                mlbamId = candidate.mlbamId,
-                fullName = candidate.fullName,
-                normalizedName = PlayerUtils.normalizeForSearch(candidate.fullName),
-                position = candidate.position,
-                throwingHand = candidate.throwingHand,
-                isPitcher = isPitcher,
-                teamName = candidate.team.name,
-                teamAbbr = candidate.team.abbreviation,
-                league = candidate.team.league,
-                division = candidate.team.division,
-                savantUrl = result.savantUrl,
-                screenshot = result.pngBytes,
-                inningsPitched = pitcherStats?.first,
-                gamesStarted = pitcherStats?.second,
-            )
+        for (candidate in candidates.take(MAX_SCREENSHOT_ATTEMPTS)) {
+            val curated = buildDailyPlayer(date, candidate)
+            if (curated != null) return curated
         }
         return null
+    }
+
+    private fun buildDailyPlayer(
+        date: LocalDate,
+        candidate: MLBPlayer,
+    ): DailyPlayer? {
+        val isPitcher = candidate.position in PITCHER_POSITIONS
+        val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher) ?: return null
+        val pitcherStats = if (isPitcher) rosterDataService.pitcherLineFor(candidate.mlbamId, date.year) else null
+        return DailyPlayer(
+            gameDate = date,
+            mlbamId = candidate.mlbamId,
+            fullName = candidate.fullName,
+            normalizedName = PlayerUtils.normalizeForSearch(candidate.fullName),
+            position = candidate.position,
+            throwingHand = candidate.throwingHand,
+            isPitcher = isPitcher,
+            teamName = candidate.team.name,
+            teamAbbr = candidate.team.abbreviation,
+            league = candidate.team.league,
+            division = candidate.team.division,
+            savantUrl = result.savantUrl,
+            screenshot = result.pngBytes,
+            inningsPitched = pitcherStats?.first,
+            gamesStarted = pitcherStats?.second,
+        )
     }
 
     fun getDailyPlayerResponse(date: LocalDate): Map<String, Any> {
@@ -396,7 +344,7 @@ class DailyPlayerService(
         val combined = LinkedHashMap<String, Map<String, Any>>()
         val todaysPlayerMlbamId = dailyPlayerRepository.findByGameDate(today)?.mlbamId
 
-        for (player in rosterCache) {
+        for (player in rosterDataService.players()) {
             val normalized = PlayerUtils.normalizeForSearch(player.fullName)
             val types =
                 when {
@@ -404,7 +352,7 @@ class DailyPlayerService(
                     player.position in PITCHER_POSITIONS -> listOf("PITCHER")
                     else -> listOf("BATTER")
                 }
-            val eligible = player.mlbamId == todaysPlayerMlbamId || isPlayerEligible(player)
+            val eligible = player.mlbamId == todaysPlayerMlbamId || rosterDataService.isPlayerEligible(player)
             for (type in types) {
                 val entry =
                     mutableMapOf<String, Any>(
@@ -415,7 +363,7 @@ class DailyPlayerService(
                         "eligible" to eligible,
                     )
                 if (!eligible) {
-                    entry["eligibilityReason"] = eligibilityReason(player, type == "PITCHER")
+                    entry["eligibilityReason"] = rosterDataService.eligibilityReason(player, type == "PITCHER")
                 }
                 combined["$normalized|$type"] = entry
             }
@@ -463,7 +411,7 @@ class DailyPlayerService(
         if (gameOver) {
             result["playerInfo"] = PlayerUtils.buildPlayerInfo(player.toSnapshot())
         } else {
-            result["hints"] = PlayerUtils.buildHints(player.toSnapshot(), guessNumber, playerName, rosterCache)
+            result["hints"] = PlayerUtils.buildHints(player.toSnapshot(), guessNumber, playerName, rosterDataService.players())
         }
         return result
     }
