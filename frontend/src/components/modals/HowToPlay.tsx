@@ -73,7 +73,7 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
             </a>
           </p>
         </div>
-        <div className="border-t border-sv-border pt-3 text-xs text-sv-muted">g
+        <div className="border-t border-sv-border pt-3 text-xs text-sv-muted">
           <p>
             Savantle is an independent project by Andrew at <a href="https://polyloon.com" target="_blank">Polyloon
             Studios</a>.
