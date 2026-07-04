@@ -17,7 +17,6 @@ class MLBRosterService {
         private const val RETRY_DELAY_MS = 2000L
         private const val WAF_RETRY_DELAY_MS = 10000L
         private const val ROSTER_FETCH_PACING_MS = 1000L
-        private const val ROSTER_COOLDOWN_MS = 60000L
         private const val STATS_PAGE_SIZE = 100
         private const val STATS_PAGE_PACING_MS = 1000L
         private const val FETCH_SCRIPT_PATH = "scripts/fetch_url.py"
@@ -222,6 +221,7 @@ class MLBRosterService {
         log.info("Found ${teams.size} MLB teams for $year")
 
         val players = fetchAllPlayers(year, teams.associateBy { it.id })
+        log.info("Bulk player fetch: ${players.size} players across ${teams.size} teams")
         val statusByTeam = fetchRosterStatuses(teams)
 
         return players.map { player ->
@@ -258,37 +258,33 @@ class MLBRosterService {
         }
     }
 
+    /**
+     * Best-effort only: this enrichment is never allowed to gate the roster load, so each team
+     * gets a single fast attempt (no retries, no WAF backoff) rather than the standard get()
+     * retry policy — a team that fails here just keeps the bulk on-roster default. Retrying
+     * every team through the full 10s/20s WAF backoff would turn a bad WAF day into a 20-30+
+     * minute blocking startup call.
+     */
     private fun fetchRosterStatuses(teams: List<MLBTeam>): Map<Int, Map<Int, RosterStatusEntry>> {
         val result = mutableMapOf<Int, Map<Int, RosterStatusEntry>>()
-        var remaining = teams
-        var pass = 1
-        while (remaining.isNotEmpty() && pass <= 2) {
-            if (pass > 1) {
-                log.warn("${remaining.size} team roster-status fetches failed — retrying after ${ROSTER_COOLDOWN_MS / 1000}s cooldown")
-                Thread.sleep(ROSTER_COOLDOWN_MS)
-            }
-            val failed = mutableListOf<MLBTeam>()
-            for (team in remaining) {
-                try {
-                    result[team.id] = fetchRosterStatus(team)
-                } catch (e: Exception) {
-                    log.warn("Failed to fetch roster status for ${team.name}: ${e.message}")
-                    failed.add(team)
-                }
-                Thread.sleep(ROSTER_FETCH_PACING_MS)
-            }
-            remaining = failed
-            pass++
+        for (team in teams) {
+            val statuses = fetchRosterStatus(team)
+            if (statuses != null) result[team.id] = statuses
+            Thread.sleep(ROSTER_FETCH_PACING_MS)
         }
-        if (remaining.isNotEmpty()) {
-            log.warn("${remaining.size} teams' roster status unavailable — their players keep the bulk on-roster default")
-        }
+        log.info("Roster status enrichment: ${result.size}/${teams.size} teams succeeded")
         return result
     }
 
-    private fun fetchRosterStatus(team: MLBTeam): Map<Int, RosterStatusEntry> {
+    private fun fetchRosterStatus(team: MLBTeam): Map<Int, RosterStatusEntry>? {
         val url = "https://statsapi.mlb.com/api/v1/teams/${team.id}/roster/40Man"
-        val json = get(url)
+        val json =
+            try {
+                getOnce(url)
+            } catch (e: Exception) {
+                log.warn("Failed to fetch roster status for ${team.name}: ${e.message}")
+                return null
+            }
         val statuses = mutableMapOf<Int, RosterStatusEntry>()
         mapper.readTree(json).path("roster").forEach { p ->
             val id = p.path("person").path("id").asInt()
@@ -343,6 +339,12 @@ class MLBRosterService {
             }
         }
         throw IOException("Fetch failed for $url after $MAX_RETRIES attempts: $lastError")
+    }
+
+    private fun getOnce(url: String): String {
+        val (exitCode, stdout, stderr) = runFetchScript(url)
+        if (exitCode != 0) throw IOException("Fetch failed for $url: ${stderr.trim()}")
+        return stdout
     }
 
     private fun runFetchScript(url: String): Triple<Int, String, String> {

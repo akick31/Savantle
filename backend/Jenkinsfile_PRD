@@ -12,6 +12,7 @@ pipeline {
         DB_USERNAME = credentials('DB_USERNAME')
         DB_PASSWORD = credentials('DB_PASSWORD')
         SAVANTLE_ADMIN_KEY = credentials('SAVANTLE_ADMIN_KEY')
+        SAVANTLE_ALERT_EMAIL = credentials('SAVANTLE_ALERT_EMAIL')
         SAVANTLE_MAIL_USERNAME = credentials('SAVANTLE_MAIL_USERNAME')
         SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
@@ -128,6 +129,7 @@ pipeline {
                             savantle.qualification.starter-ip-target=120.0
                             savantle.qualification.reliever-ip-target=50.0
                             savantle.qualification.early-season-days=30
+                            savantle.alert.email=${env.SAVANTLE_ALERT_EMAIL}
                             spring.cache.type=caffeine
                             spring.cache.caffeine.spec=maximumSize=200,expireAfterWrite=25h
                             spring.cache.cache-names=percentile-screenshots
