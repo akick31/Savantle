@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("\${api.base-path}/random-player")
+@RequestMapping("\${api.base-path}/random-game")
 class RandomGameController(private val randomGameResponseService: RandomGameResponseService) {
     @PostMapping("/new")
     fun newRandomGame(): ResponseEntity<Any> = randomGameResponseService.createRandomGame()

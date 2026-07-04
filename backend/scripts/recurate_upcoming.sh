@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-API_URL="${SAVANTLE_API_URL:-https://savantle.com/api/v1/savantle}"
+API_URL="${SAVANTLE_API_URL:-https://savantle.com/api/v1}"
 : "${SAVANTLE_ADMIN_KEY:?SAVANTLE_ADMIN_KEY must be set}"
 
 START_DATE="${1:-$(date -d '+1 day' +%F)}"

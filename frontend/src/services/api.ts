@@ -2,11 +2,11 @@ import { DailyData, GlobalStats, GuessResult, PlayerSearchItem, RandomGameData }
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
 export const BASE_URL = API_ORIGIN
-  ? `${API_ORIGIN.replace(/\/+$/, '')}/api/v1/savantle`
-  : '/api/v1/savantle';
+  ? `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`
+  : '/api/v1';
 
 export async function fetchDailyPlayer(date?: string): Promise<DailyData> {
-  const url = date ? `${BASE_URL}/daily?date=${date}` : `${BASE_URL}/daily`;
+  const url = date ? `${BASE_URL}/game/daily?date=${date}` : `${BASE_URL}/game/daily`;
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -16,7 +16,7 @@ export async function fetchDailyPlayer(date?: string): Promise<DailyData> {
 }
 
 export async function fetchPlayerList(): Promise<PlayerSearchItem[]> {
-  const res = await fetch(`${BASE_URL}/players`);
+  const res = await fetch(`${BASE_URL}/game/players`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -26,7 +26,7 @@ export async function submitGuess(
   guessNumber: number,
   date?: string
 ): Promise<GuessResult> {
-  const res = await fetch(`${BASE_URL}/guess`, {
+  const res = await fetch(`${BASE_URL}/game/guess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ playerName, guessNumber, date }),
@@ -47,11 +47,11 @@ export function dailyScreenshotUrl(date: string): string {
 }
 
 export function randomGameScreenshotUrl(gameId: string): string {
-  return `${BASE_URL}/random-player/screenshot/${gameId}`;
+  return `${BASE_URL}/random-game/screenshot/${gameId}`;
 }
 
 export async function createRandomGame(): Promise<RandomGameData> {
-  const res = await fetch(`${BASE_URL}/random-player/new`, { method: 'POST' });
+  const res = await fetch(`${BASE_URL}/random-game/new`, { method: 'POST' });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -64,7 +64,7 @@ export async function submitRandomGuess(
   playerName: string,
   guessNumber: number
 ): Promise<GuessResult> {
-  const res = await fetch(`${BASE_URL}/random-player/guess`, {
+  const res = await fetch(`${BASE_URL}/random-game/guess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gameId, playerName, guessNumber }),
@@ -77,13 +77,13 @@ export async function submitRandomGuess(
 }
 
 export async function fetchAvailableDates(): Promise<string[]> {
-  const res = await fetch(`${BASE_URL}/available-dates`);
+  const res = await fetch(`${BASE_URL}/game/available-dates`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 export async function fetchRandomDate(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/random-date`);
+  const res = await fetch(`${BASE_URL}/game/random-date`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   return data.date;
@@ -102,7 +102,7 @@ export async function recordAnalytics(eventType: string, date?: string): Promise
 }
 
 export async function fetchGlobalStats(date?: string): Promise<GlobalStats> {
-  const url = date ? `${BASE_URL}/stats?date=${date}` : `${BASE_URL}/stats`;
+  const url = date ? `${BASE_URL}/analytics/stats?date=${date}` : `${BASE_URL}/analytics/stats`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

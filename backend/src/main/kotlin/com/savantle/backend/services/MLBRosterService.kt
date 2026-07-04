@@ -1,13 +1,14 @@
 package com.savantle.backend.services
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.model.MLBTeam
+import com.savantle.backend.model.MlbTeams
 import com.savantle.backend.model.PitcherLine
 import com.savantle.backend.util.PlayerUtils
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.io.File
 import java.io.IOException
 import java.time.LocalDate
 
@@ -17,8 +18,6 @@ class MLBRosterService {
         private const val MAX_RETRIES = 3
         private const val RETRY_DELAY_MS = 2000L
         private const val WAF_RETRY_DELAY_MS = 10000L
-        private const val STATS_PAGE_SIZE = 100
-        private const val STATS_PAGE_PACING_MS = 1000L
         private const val FETCH_SCRIPT_PATH = "scripts/fetch_url.py"
         private val WAF_STATUSES = setOf(403, 406, 409)
         private val GAMEFEED_DATE_REGEX = Regex("""gamefeed\?gamePk=\d+&game_date=(\d{4}-\d{2}-\d{2})""")
@@ -26,16 +25,6 @@ class MLBRosterService {
 
     private val log = LoggerFactory.getLogger(MLBRosterService::class.java)
     private val mapper = ObjectMapper()
-
-    private val divisionMap =
-        mapOf(
-            200 to "AL West",
-            201 to "AL East",
-            202 to "AL Central",
-            203 to "NL West",
-            204 to "NL East",
-            205 to "NL Central",
-        )
 
     fun fetchSeasonStartDate(year: Int): LocalDate? {
         return try {
@@ -51,42 +40,12 @@ class MLBRosterService {
         }
     }
 
-    fun fetchQualificationStats(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
-        val batterPa = mutableMapOf<Int, Int>()
-        fetchAllStatSplits(year, "hitting").forEach { split ->
-            val id = split.path("player").path("id").asInt()
-            val pa = split.path("stat").path("plateAppearances").asInt()
-            if (id > 0) batterPa[id] = pa
-        }
-
-        val pitcherLines = mutableMapOf<Int, PitcherLine>()
-        fetchAllStatSplits(year, "pitching").forEach { split ->
-            val id = split.path("player").path("id").asInt()
-            val stat = split.path("stat")
-            val ip = parseInningsPitched(stat.path("inningsPitched").asText("0"))
-            val gs = stat.path("gamesStarted").asInt(0)
-            if (id > 0) pitcherLines[id] = PitcherLine(ip, gs)
-        }
-
-        log.info("Fetched qualification stats: ${batterPa.size} batters, ${pitcherLines.size} pitchers")
-        return batterPa to pitcherLines
-    }
-
     /**
-     * Baseball Savant's leaderboard has proven far more reliable than statsapi's bulk /stats
-     * endpoint (a different host, so it survives statsapi-wide WAF issues), so it's tried first;
-     * statsapi is kept as a fallback in case it recovers.
+     * Baseball Savant only — statsapi's bulk /stats endpoint was tried as a fallback here and
+     * dropped: it 406'd every attempt across multiple diagnostic runs, so it was dead weight.
+     * Savant is a different host and has proven reliable throughout.
      */
-    fun fetchQualificationStatsWithFallback(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
-        return try {
-            fetchQualificationStatsFromSavant(year).also { log.info("Qualification stats source: Baseball Savant CSV") }
-        } catch (e: Exception) {
-            log.warn("Baseball Savant qualification stats failed (${e.message}) — falling back to statsapi bulk")
-            fetchQualificationStats(year).also { log.info("Qualification stats source: statsapi bulk") }
-        }
-    }
-
-    fun fetchQualificationStatsFromSavant(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
+    fun fetchQualificationStats(year: Int): Pair<Map<Int, Int>, Map<Int, PitcherLine>> {
         val batterPa = mutableMapOf<Int, Int>()
         for (row in parseSavantCsv(get(savantLeaderboardUrl(year, "batter", "pa")))) {
             val id = row["player_id"]?.toIntOrNull() ?: continue
@@ -148,28 +107,6 @@ class MLBRosterService {
         }
         fields.add(current.toString())
         return fields
-    }
-
-    private fun fetchAllStatSplits(
-        year: Int,
-        group: String,
-    ): List<JsonNode> {
-        val splits = mutableListOf<JsonNode>()
-        var offset = 0
-        while (true) {
-            val json =
-                get(
-                    "https://statsapi.mlb.com/api/v1/stats?stats=season&group=$group" +
-                        "&gameType=R&season=$year&limit=$STATS_PAGE_SIZE&offset=$offset&playerPool=All",
-                )
-            val page = mutableListOf<JsonNode>()
-            mapper.readTree(json).path("stats").forEach { g -> g.path("splits").forEach { page.add(it) } }
-            splits.addAll(page)
-            if (page.size < STATS_PAGE_SIZE) break
-            offset += STATS_PAGE_SIZE
-            Thread.sleep(STATS_PAGE_PACING_MS)
-        }
-        return splits
     }
 
     private fun parseInningsPitched(ip: String): Double {
@@ -249,8 +186,7 @@ class MLBRosterService {
      */
     fun fetchActiveRosters(): List<MLBPlayer> {
         val year = LocalDate.now().year
-        val teams = fetchTeams(year)
-        log.info("Found ${teams.size} MLB teams for $year")
+        val teams = MlbTeams.ALL
 
         val players = fetchAllPlayers(year, teams.associateBy { it.id })
         log.info("Bulk player fetch: ${players.size} players across ${teams.size} teams")
@@ -285,31 +221,6 @@ class MLBRosterService {
         }
     }
 
-    private fun fetchTeams(year: Int): List<MLBTeam> {
-        val url = "https://statsapi.mlb.com/api/v1/teams?sportId=1&season=$year"
-        val json = get(url)
-        val root = mapper.readTree(json)
-
-        return root.path("teams").mapNotNull { t ->
-            val id = t.path("id").asInt()
-            val name = t.path("teamName").asText()
-            val abbr = t.path("abbreviation").asText()
-            val leagueId = t.path("league").path("id").asInt()
-            val divisionId = t.path("division").path("id").asInt()
-
-            if (id <= 0 || name.isBlank() || abbr.isBlank()) return@mapNotNull null
-            val league =
-                when (leagueId) {
-                    103 -> "AL"
-                    104 -> "NL"
-                    else -> return@mapNotNull null
-                }
-            val division = divisionMap[divisionId] ?: return@mapNotNull null
-
-            MLBTeam(id = id, name = name, abbreviation = abbr, league = league, division = division)
-        }
-    }
-
     private fun get(url: String): String {
         var lastError = ""
         for (attempt in 1..MAX_RETRIES) {
@@ -331,10 +242,28 @@ class MLBRosterService {
     }
 
     private fun runFetchScript(url: String): Triple<Int, String, String> {
-        val process = ProcessBuilder("python3", FETCH_SCRIPT_PATH, url).start()
+        val process = ProcessBuilder("python3", scriptPath, url).start()
         val stdout = process.inputStream.bufferedReader().readText()
         val stderr = process.errorStream.bufferedReader().readText()
         val exitCode = process.waitFor()
         return Triple(exitCode, stdout, stderr)
+    }
+
+    /**
+     * "scripts/fetch_url.py" only resolves if the JVM's working directory is `backend/` — true
+     * in Docker (WORKDIR=/app, matching where the jar and scripts/ are copied) and true for
+     * `cd backend && ./gradlew bootRun`, but not if something (an IDE run config, a shell script)
+     * launches the JVM from the repo root instead. Checked once and cached; falls back to the
+     * plain relative path if neither candidate exists so the original error message still shows
+     * the path that was actually tried.
+     */
+    private val scriptPath: String by lazy {
+        val cwdRelative = File(FETCH_SCRIPT_PATH)
+        val repoRootRelative = File("backend/$FETCH_SCRIPT_PATH")
+        when {
+            cwdRelative.isFile -> cwdRelative.path
+            repoRootRelative.isFile -> repoRootRelative.path
+            else -> FETCH_SCRIPT_PATH
+        }
     }
 }

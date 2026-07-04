@@ -97,9 +97,9 @@ class RosterDataService(
 
         val freshStats =
             try {
-                mlbRosterService.fetchQualificationStatsWithFallback(year)
+                mlbRosterService.fetchQualificationStats(year)
             } catch (e: Exception) {
-                log.warn("All qualification stats sources failed: ${e.message}")
+                log.warn("Qualification stats fetch failed: ${e.message}")
                 null
             }
 

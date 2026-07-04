@@ -184,6 +184,35 @@ class DailyPlayerService(
         }
     }
 
+    /**
+     * Backfills lastGamePlayed on already-curated rows without touching anything else about
+     * them — added after the field itself, so today's puzzle and the rest of the current
+     * curation window were saved before it existed and would otherwise show it as missing
+     * until they're naturally re-curated.
+     */
+    @Transactional
+    fun backfillLastGamePlayed(): Map<String, Any> {
+        val today = LocalDate.now()
+        val candidates =
+            dailyPlayerRepository
+                .findByGameDateBetween(today, today.plusDays(daysAhead.toLong()))
+                .filter { it.lastGamePlayed == null }
+
+        val updated = mutableListOf<String>()
+        for (player in candidates) {
+            val lastGamePlayed = rosterDataService.lastGamePlayedFor(player.mlbamId, player.fullName)
+            if (lastGamePlayed != null) {
+                player.lastGamePlayed = lastGamePlayed
+                dailyPlayerRepository.save(player)
+                updated.add("${player.gameDate}: ${player.fullName}")
+                log.info("Backfilled lastGamePlayed for ${player.gameDate} (${player.fullName}): $lastGamePlayed")
+            } else {
+                log.warn("Could not backfill lastGamePlayed for ${player.gameDate} (${player.fullName})")
+            }
+        }
+        return mapOf("checked" to candidates.size, "updated" to updated)
+    }
+
     @Transactional
     fun curateAutoForDate(date: LocalDate): Map<String, Any> {
         rosterDataService.ensureFreshForToday()

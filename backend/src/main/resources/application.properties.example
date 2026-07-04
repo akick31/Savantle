@@ -1,6 +1,6 @@
 server.port=778
 spring.application.name=savantle
-api.base-path=/api/v1/savantle
+api.base-path=/api/v1
 cors.allowed.origins=http://localhost:3000,https://yourdomain.com
 management.endpoints.web.exposure.include=health
 

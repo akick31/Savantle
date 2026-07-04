@@ -4,10 +4,13 @@
 Run this on the VPS to see which requests MLB's WAF rejects (409/403/406) there:
   python3 diag_statsapi.py
 
-Includes variants of the bulk stats call so a single run shows which parameters
-are safe. Per-team /roster/40Man and the hydrate param are NOT probed — both
-were dropped from the backend (WAF rejected them too often to be worth the
-latency, and hydrate is deterministically rejected).
+statsapi's remaining footprint is small and deliberate: the bulk roster call (nothing
+else can provide zero-stat/just-called-up players), season start date (rarely fetched,
+cached once it succeeds), and the per-pitcher stats fallback (rare — only hit when a
+pitcher is missing from Savant's stats entirely). Everything else that used to hit
+statsapi (teams, bulk qualification stats, per-team roster status, hydrate) has been
+either hardcoded (see MlbTeams.kt) or dropped for being unreliable / redundant with
+Baseball Savant.
 """
 
 import sys
@@ -18,31 +21,10 @@ from curl_cffi import requests
 YEAR = time.localtime().tm_year
 
 PROBES = [
-    ("teams (used)", f"https://statsapi.mlb.com/api/v1/teams?sportId=1&season={YEAR}"),
     ("all players — sole roster source (used)", f"https://statsapi.mlb.com/api/v1/sports/1/players?season={YEAR}"),
     ("season dates (used)", f"https://statsapi.mlb.com/api/v1/seasons/{YEAR}?sportId=1"),
     (
-        "bulk hitting stats (used)",
-        f"https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&gameType=R&season={YEAR}&limit=100&offset=0&playerPool=All",
-    ),
-    (
-        "bulk hitting stats, offset page (used)",
-        f"https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&gameType=R&season={YEAR}&limit=100&offset=500&playerPool=All",
-    ),
-    (
-        "bulk pitching stats (used)",
-        f"https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&gameType=R&season={YEAR}&limit=100&offset=0&playerPool=All",
-    ),
-    (
-        "bulk stats without playerPool (variant)",
-        f"https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&gameType=R&season={YEAR}&limit=100&offset=0",
-    ),
-    (
-        "bulk stats limit=50 (variant)",
-        f"https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&gameType=R&season={YEAR}&limit=50&offset=0&playerPool=All",
-    ),
-    (
-        "single pitcher stats (used)",
+        "single pitcher stats (fallback, used)",
         f"https://statsapi.mlb.com/api/v1/people/660271/stats?stats=season&group=pitching&season={YEAR}&gameType=R",
     ),
     (

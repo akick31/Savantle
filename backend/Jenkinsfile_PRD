@@ -133,7 +133,7 @@ pipeline {
                             spring.cache.type=caffeine
                             spring.cache.caffeine.spec=maximumSize=200,expireAfterWrite=25h
                             spring.cache.cache-names=percentile-screenshots
-                            api.base-path=/api/v1/savantle
+                            api.base-path=/api/v1
                         """.stripIndent()
 
                         writeFile file: "${env.APP_PROPERTIES}", text: propertiesContent

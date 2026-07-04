@@ -20,21 +20,28 @@ A daily Wordle-style Baseball Savant percentiles guessing game. Each day a myste
 
 ## REST API
 
-Base path: `/api/v1/savantle`
+Base path: `/api/v1`. Each controller owns its own path segment.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/daily` | Returns date and player type for today (no player identity) |
+| GET | `/game/daily` | Returns date and player type for today (no player identity) |
+| GET | `/game/players` | Full searchable player list |
+| POST | `/game/guess` | Submit a guess; returns result, hints, and player info on game over |
+| GET | `/game/available-dates` | Dates with available games for the replay picker |
+| GET | `/game/random-date` | Returns a random available past date |
 | GET | `/screenshot/{date}` | PNG percentile chart, cached 24 hours |
-| GET | `/players` | Full searchable player list |
-| POST | `/guess` | Submit a guess; returns result, hints, and player info on game over |
-| GET | `/available-dates` | Dates with available games for the replay picker |
-| GET | `/random-date` | Returns a random available past date |
-| POST | `/random-player/new` | Creates a new random game session |
-| POST | `/random-player/guess` | Submit a guess against a random game |
+| GET | `/screenshot/live/{date}` | Uncached live percentile chart |
+| POST | `/random-game/new` | Creates a new random game session |
+| GET | `/random-game/screenshot/{gameId}` | PNG percentile chart for a random game |
+| POST | `/random-game/guess` | Submit a guess against a random game |
+| POST | `/analytics` | Records a client analytics event |
+| GET | `/analytics/stats` | Public daily global stats |
+| GET | `/analytics` | Analytics summary (auth-gated) |
 | POST | `/contact` | Sends a contact form email |
 | POST | `/admin/curate` | Manually set a player for a specific date (auth-gated) |
-| GET | `/admin/analytics` | Analytics summary (auth-gated) |
+| POST | `/admin/backfill-last-game-played` | Backfills `lastGamePlayed` on already-curated rows (auth-gated) |
+
+`/health` sits outside `/api/v1` entirely (bare `/health`).
 
 ## Dev Setup
 

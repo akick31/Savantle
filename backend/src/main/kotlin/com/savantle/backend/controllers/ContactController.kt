@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("\${api.base-path}")
+@RequestMapping("\${api.base-path}/contact")
 class ContactController(private val contactService: ContactService) {
-    @PostMapping("/contact")
+    @PostMapping
     fun contact(
         @RequestBody request: ContactRequest,
     ): ResponseEntity<Any> = contactService.sendResponse(request)

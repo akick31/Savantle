@@ -11,8 +11,15 @@ import java.security.MessageDigest
 @Component
 class AdminAuthFilter(
     @Value("\${savantle.admin.api-key}") private val apiKey: String,
+    @Value("\${api.base-path}") private val basePath: String,
 ) : OncePerRequestFilter() {
-    override fun shouldNotFilter(request: HttpServletRequest) = !request.requestURI.contains("/admin/")
+    private val analyticsSummaryPath by lazy { "$basePath/analytics" }
+
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+        val isAdminPath = request.requestURI.contains("/admin/")
+        val isAnalyticsSummary = request.requestURI == analyticsSummaryPath && request.method == "GET"
+        return !(isAdminPath || isAnalyticsSummary)
+    }
 
     override fun doFilterInternal(
         request: HttpServletRequest,
