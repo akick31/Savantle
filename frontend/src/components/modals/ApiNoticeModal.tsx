@@ -18,7 +18,8 @@ export default function ApiNoticeModal({ open, onClose }: ApiNoticeModalProps) {
         <p className="mt-4">
           One side effect of the fix: the game can no longer always tell whether a player is currently on the injured
           list or optioned to the minors, so an inactive player could occasionally show up as the mystery player or in
-          search. To help spot this, player reveals now show their last game played.
+          search. To help address this, players in the future will show the last game played along with the Savant
+          percentiles.git
         </p>
         <p className="mt-4">
           Thanks for your patience, and sorry for the inconvenience!
