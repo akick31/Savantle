@@ -74,7 +74,13 @@ class RandomGameService(
 
         poolExecutor.submit { tryFillPool() }
 
-        return mapOf("gameId" to game.gameId, "playerType" to if (game.isPitcher) "PITCHER" else "BATTER")
+        val response =
+            mutableMapOf(
+                "gameId" to game.gameId,
+                "playerType" to if (game.isPitcher) "PITCHER" else "BATTER",
+            )
+        if (game.lastGamePlayed != null) response["lastGamePlayed"] = game.lastGamePlayed.toString()
+        return response
     }
 
     private fun tryFillPool() {

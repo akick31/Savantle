@@ -9,6 +9,7 @@ export type GameStatus = 'loading' | 'playing' | 'won' | 'lost';
 export interface DailyData {
   date: string;
   playerType: PlayerType;
+  lastGamePlayed?: string;
 }
 
 export interface HintData {
@@ -49,6 +50,7 @@ export interface PlayerSearchItem {
 export interface RandomGameData {
   gameId: string;
   playerType: PlayerType;
+  lastGamePlayed?: string;
 }
 
 export interface StoredGame {

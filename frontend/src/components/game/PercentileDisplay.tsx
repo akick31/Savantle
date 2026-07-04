@@ -4,9 +4,10 @@ import { PlayerType } from '../../types';
 interface PercentileDisplayProps {
   screenshotUrl: string;
   playerType: PlayerType;
+  lastGamePlayed?: string;
 }
 
-export default function PercentileDisplay({ screenshotUrl, playerType }: PercentileDisplayProps) {
+export default function PercentileDisplay({ screenshotUrl, playerType, lastGamePlayed }: PercentileDisplayProps) {
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
@@ -84,6 +85,13 @@ export default function PercentileDisplay({ screenshotUrl, playerType }: Percent
       <p className="mt-3 text-[11px] text-sv-muted text-center">
         Image source: Baseball Savant
       </p>
+      {lastGamePlayed && (
+        <div className="mt-2 flex justify-start">
+          <span className="text-[11px] text-sv-muted bg-sv-border px-2.5 py-1 rounded-full">
+            Last game played: {lastGamePlayed}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

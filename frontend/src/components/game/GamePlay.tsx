@@ -58,7 +58,7 @@ export default function GamePlay({ dailyData, screenshotUrl, players, guesses, h
 
   return (
     <div className="space-y-4">
-      <PercentileDisplay screenshotUrl={screenshotUrl} playerType={dailyData.playerType} />
+      <PercentileDisplay screenshotUrl={screenshotUrl} playerType={dailyData.playerType} lastGamePlayed={dailyData.lastGamePlayed} />
 
       {guesses.length > 0 && <HintDisplay guesses={guesses} players={players} />}
 

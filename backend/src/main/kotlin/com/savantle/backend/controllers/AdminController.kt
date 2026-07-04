@@ -15,7 +15,4 @@ class AdminController(private val adminService: AdminService) {
     fun curateDate(
         @RequestBody request: ManualCurateRequest,
     ): ResponseEntity<Any> = adminService.curateAutoForDate(request.date, request.playerName)
-
-    @PostMapping("/backfill-last-game-played")
-    fun backfillLastGamePlayed(): ResponseEntity<Any> = adminService.backfillLastGamePlayed()
 }

@@ -62,7 +62,7 @@ export default function RandomPage() {
 
       {randomState.status === 'playing' && randomState.gameData && (
         <GamePlay
-          dailyData={{ date: randomState.gameData.gameId, playerType }}
+          dailyData={{ date: randomState.gameData.gameId, playerType, lastGamePlayed: randomState.gameData.lastGamePlayed }}
           screenshotUrl={screenshotUrl}
           players={randomState.players}
           guesses={randomState.guesses}
@@ -73,7 +73,7 @@ export default function RandomPage() {
       )}
       {isFinished && randomState.playerInfo && (
         <>
-          <PercentileDisplay screenshotUrl={screenshotUrl} playerType={playerType} />
+          <PercentileDisplay screenshotUrl={screenshotUrl} playerType={playerType} lastGamePlayed={randomState.playerInfo.lastGamePlayed} />
           <EndScreen
             status={randomState.status}
             playerInfo={randomState.playerInfo}

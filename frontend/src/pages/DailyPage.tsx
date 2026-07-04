@@ -83,7 +83,7 @@ export default function DailyPage() {
       )}
       {isFinished && dailyState.playerInfo && (
         <>
-          <PercentileDisplay screenshotUrl={screenshotUrl} playerType={playerType} />
+          <PercentileDisplay screenshotUrl={screenshotUrl} playerType={playerType} lastGamePlayed={dailyState.playerInfo.lastGamePlayed} />
           <EndScreen
             status={dailyState.status}
             playerInfo={dailyState.playerInfo}

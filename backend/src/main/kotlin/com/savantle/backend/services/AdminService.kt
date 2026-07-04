@@ -36,12 +36,4 @@ class AdminService(private val dailyPlayerService: DailyPlayerService) {
             ResponseEntity.internalServerError().body(mapOf("error" to "Failed to curate player"))
         }
     }
-
-    fun backfillLastGamePlayed(): ResponseEntity<Any> {
-        return try {
-            ResponseEntity.ok(dailyPlayerService.backfillLastGamePlayed())
-        } catch (e: Exception) {
-            ResponseEntity.internalServerError().body(mapOf("error" to "Failed to backfill last game played"))
-        }
-    }
 }

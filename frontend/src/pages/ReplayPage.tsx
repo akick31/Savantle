@@ -62,7 +62,7 @@ export default function ReplayPage() {
       )}
       {isFinished && replayState.playerInfo && (
         <>
-          <PercentileDisplay screenshotUrl={screenshotUrl} playerType={playerType} />
+          <PercentileDisplay screenshotUrl={screenshotUrl} playerType={playerType} lastGamePlayed={replayState.playerInfo.lastGamePlayed} />
           <EndScreen
             status={replayState.status}
             playerInfo={replayState.playerInfo}
