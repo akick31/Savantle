@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.savantle.backend.model.MLBPlayer
 import com.savantle.backend.model.MLBTeam
 import com.savantle.backend.model.PitcherLine
+import com.savantle.backend.util.PlayerUtils
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.IOException
@@ -20,6 +21,7 @@ class MLBRosterService {
         private const val STATS_PAGE_PACING_MS = 1000L
         private const val FETCH_SCRIPT_PATH = "scripts/fetch_url.py"
         private val WAF_STATUSES = setOf(403, 406, 409)
+        private val GAMEFEED_DATE_REGEX = Regex("""gamefeed\?gamePk=\d+&game_date=(\d{4}-\d{2}-\d{2})""")
     }
 
     private val log = LoggerFactory.getLogger(MLBRosterService::class.java)
@@ -203,24 +205,37 @@ class MLBRosterService {
     }
 
     /**
-     * Best-effort, single call per player — used only for the curated/random daily reveal (not
-     * bulk), so a WAF rejection just means the game omits this detail rather than failing.
+     * Sourced from the player's own Baseball Savant page rather than statsapi's gameLog stat
+     * type: Savant has proven far more reliable under the WAF, and the page already embeds
+     * gamefeed links for every recent plate appearance/pitch. Any slug works — Savant 301s to
+     * the canonical one — but we build the real one to skip that extra redirect. Best-effort,
+     * single call per player, used only for the curated/random daily reveal (not bulk), so a
+     * failure just means the game omits this detail.
+     *
+     * The embedded gamefeed links are NOT reliably in chronological order (other page widgets —
+     * e.g. career-vs-this-team blurbs — interleave older dates after the real most recent game),
+     * so the max date across all of them is taken rather than the first/last one found.
      */
     fun fetchLastGamePlayed(
         mlbamId: Int,
-        year: Int,
-        isPitcher: Boolean,
+        fullName: String,
     ): LocalDate? {
-        val group = if (isPitcher) "pitching" else "hitting"
         return try {
-            val json = get("https://statsapi.mlb.com/api/v1/people/$mlbamId/stats?stats=gameLog&group=$group&season=$year")
-            val splits = mapper.readTree(json).path("stats").firstOrNull()?.path("splits") ?: return null
-            val dateStr = splits.lastOrNull()?.path("date")?.asText() ?: return null
-            if (dateStr.isBlank()) null else LocalDate.parse(dateStr)
+            val slug = PlayerUtils.toSlug(fullName)
+            val html = get("https://baseballsavant.mlb.com/savant-player/$slug-$mlbamId")
+            extractLastGamePlayed(html)
         } catch (e: Exception) {
-            log.warn("Failed to fetch last game played for mlbamId=$mlbamId year=$year: ${e.message}")
+            log.warn("Failed to fetch last game played for mlbamId=$mlbamId: ${e.message}")
             null
         }
+    }
+
+    internal fun extractLastGamePlayed(html: String): LocalDate? {
+        val maxDate =
+            GAMEFEED_DATE_REGEX.findAll(html)
+                .map { it.groupValues[1] }
+                .maxOrNull() ?: return null
+        return LocalDate.parse(maxDate)
     }
 
     /**

@@ -8,12 +8,12 @@ import com.microsoft.playwright.Playwright
 import com.microsoft.playwright.options.WaitForSelectorState
 import com.microsoft.playwright.options.WaitUntilState
 import com.savantle.backend.model.ScreenshotResult
+import com.savantle.backend.util.PlayerUtils
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
-import java.text.Normalizer
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.random.Random
@@ -111,7 +111,7 @@ class ScreenshotService {
         fullName: String,
         isPitcher: Boolean,
     ): ScreenshotResult? {
-        val slug = toSlug(fullName)
+        val slug = PlayerUtils.toSlug(fullName)
         val type = if (isPitcher) "pitcher" else "batter"
         val url = "https://baseballsavant.mlb.com/savant-player/$slug-$mlbamId?stats=statcast-r-$type"
 
@@ -201,15 +201,6 @@ class ScreenshotService {
             }
         }
         return ctx
-    }
-
-    private fun toSlug(name: String): String {
-        val nfd = Normalizer.normalize(name, Normalizer.Form.NFD)
-        return nfd.replace(Regex("[\\u0300-\\u036f]"), "")
-            .lowercase()
-            .replace(Regex("[^a-z0-9\\s-]"), "")
-            .trim()
-            .replace(Regex("\\s+"), "-")
     }
 
     private fun findPercentileContainerByHeading(

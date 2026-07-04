@@ -17,6 +17,15 @@ object PlayerUtils {
             .trim()
     }
 
+    fun toSlug(name: String): String {
+        val nfd = Normalizer.normalize(name, Normalizer.Form.NFD)
+        return nfd.replace(Regex("[\\u0300-\\u036f]"), "")
+            .lowercase()
+            .replace(Regex("[^a-z0-9\\s-]"), "")
+            .trim()
+            .replace(Regex("\\s+"), "-")
+    }
+
     fun formatPosition(
         isPitcher: Boolean,
         throwingHand: String?,

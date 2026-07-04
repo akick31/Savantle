@@ -1,8 +1,10 @@
 package com.savantle.backend.services
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 class MLBRosterServiceTest {
     private val service = MLBRosterService()
@@ -28,5 +30,25 @@ class MLBRosterServiceTest {
     fun `parses empty csv without rows`() {
         assertTrue(service.parseSavantCsv("").isEmpty())
         assertTrue(service.parseSavantCsv("\"player_id\",\"pa\"").isEmpty())
+    }
+
+    @Test
+    fun `extracts most recent gamefeed date even when a later widget interleaves an older one`() {
+        // Real pages (e.g. a "career vs this team" blurb) can embed an older gamefeed link
+        // after the real most-recent game in document order — the max date must win, not the
+        // last one found.
+        val html =
+            """
+            <a href="/gamefeed?gamePk=1&game_date=2026-06-13">x</a>
+            <a href="/gamefeed?gamePk=2&game_date=2026-06-27">x</a>
+            <a href="/gamefeed?gamePk=3&game_date=2024-09-03">x</a>
+            """.trimIndent()
+
+        assertEquals(LocalDate.of(2026, 6, 27), service.extractLastGamePlayed(html))
+    }
+
+    @Test
+    fun `returns null when no gamefeed links are present`() {
+        assertNull(service.extractLastGamePlayed("<html><body>no games yet</body></html>"))
     }
 }

@@ -154,7 +154,7 @@ class DailyPlayerService(
                     player.gamesStarted = stats.second
                 }
             }
-            val lastGamePlayed = rosterDataService.lastGamePlayedFor(player.mlbamId, tomorrow.year, player.isPitcher)
+            val lastGamePlayed = rosterDataService.lastGamePlayedFor(player.mlbamId, player.fullName)
             if (lastGamePlayed != null) player.lastGamePlayed = lastGamePlayed
             dailyPlayerRepository.save(player)
             log.info("Refreshed screenshot for tomorrow: ${player.fullName}")
@@ -310,7 +310,7 @@ class DailyPlayerService(
         val isPitcher = candidate.position in PITCHER_POSITIONS
         val result = screenshotService.capturePercentiles(candidate.mlbamId, candidate.fullName, isPitcher) ?: return null
         val pitcherStats = if (isPitcher) rosterDataService.pitcherLineFor(candidate.mlbamId, date.year) else null
-        val lastGamePlayed = rosterDataService.lastGamePlayedFor(candidate.mlbamId, date.year, isPitcher)
+        val lastGamePlayed = rosterDataService.lastGamePlayedFor(candidate.mlbamId, candidate.fullName)
         return DailyPlayer(
             gameDate = date,
             mlbamId = candidate.mlbamId,

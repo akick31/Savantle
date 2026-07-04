@@ -46,6 +46,10 @@ PROBES = [
         f"https://statsapi.mlb.com/api/v1/people/660271/stats?stats=season&group=pitching&season={YEAR}&gameType=R",
     ),
     (
+        "savant player page — last game played (fallback, used)",
+        "https://baseballsavant.mlb.com/savant-player/shohei-ohtani-660271",
+    ),
+    (
         "savant batter CSV (fallback, used)",
         f"https://baseballsavant.mlb.com/leaderboard/custom?year={YEAR}&type=batter&filter=&min=1"
         "&selections=pa&chart=false&x=pa&y=pa&r=no&chartType=beeswarm&sort=1&sortDir=desc&csv=true",
