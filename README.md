@@ -39,7 +39,6 @@ Base path: `/api/v1`. Each controller owns its own path segment.
 | GET | `/analytics` | Analytics summary (auth-gated) |
 | POST | `/contact` | Sends a contact form email |
 | POST | `/admin/curate` | Manually set a player for a specific date (auth-gated) |
-| POST | `/admin/backfill-last-game-played` | Backfills `lastGamePlayed` on already-curated rows (auth-gated) |
 
 `/health` sits outside `/api/v1` entirely (bare `/health`).
 
