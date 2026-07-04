@@ -1,6 +1,6 @@
 package com.savantle.backend.controllers
 
-import com.savantle.backend.model.dto.ContactRequest
+import com.savantle.backend.model.dto.request.ContactRequest
 import com.savantle.backend.services.ContactService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping

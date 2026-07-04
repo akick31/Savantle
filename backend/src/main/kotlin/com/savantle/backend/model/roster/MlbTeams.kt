@@ -1,4 +1,4 @@
-package com.savantle.backend.model
+package com.savantle.backend.model.roster
 
 object MlbTeams {
     val ALL: List<MLBTeam> =

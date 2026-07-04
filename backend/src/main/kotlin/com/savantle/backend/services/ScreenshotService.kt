@@ -7,7 +7,7 @@ import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
 import com.microsoft.playwright.options.WaitForSelectorState
 import com.microsoft.playwright.options.WaitUntilState
-import com.savantle.backend.model.ScreenshotResult
+import com.savantle.backend.model.game.ScreenshotResult
 import com.savantle.backend.util.PlayerUtils
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy

@@ -1,6 +1,6 @@
 package com.savantle.backend.repositories
 
-import com.savantle.backend.model.Analytics
+import com.savantle.backend.model.entity.Analytics
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query

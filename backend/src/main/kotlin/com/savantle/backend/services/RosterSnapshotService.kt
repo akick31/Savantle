@@ -2,15 +2,15 @@ package com.savantle.backend.services
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.savantle.backend.model.MLBPlayer
-import com.savantle.backend.model.MLBTeam
-import com.savantle.backend.model.PitcherLine
-import com.savantle.backend.model.RosterData
-import com.savantle.backend.model.RosterSnapshot
-import com.savantle.backend.model.RosterSnapshotPayload
-import com.savantle.backend.model.SnapshotBatterStat
-import com.savantle.backend.model.SnapshotPitcherStat
-import com.savantle.backend.model.SnapshotPlayer
+import com.savantle.backend.model.dto.payload.RosterSnapshotPayload
+import com.savantle.backend.model.dto.payload.SnapshotBatterStat
+import com.savantle.backend.model.dto.payload.SnapshotPitcherStat
+import com.savantle.backend.model.dto.payload.SnapshotPlayer
+import com.savantle.backend.model.entity.RosterSnapshot
+import com.savantle.backend.model.roster.MLBPlayer
+import com.savantle.backend.model.roster.MLBTeam
+import com.savantle.backend.model.roster.PitcherLine
+import com.savantle.backend.model.roster.RosterData
 import com.savantle.backend.repositories.RosterSnapshotRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

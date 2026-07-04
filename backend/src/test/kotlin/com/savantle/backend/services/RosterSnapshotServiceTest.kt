@@ -1,10 +1,10 @@
 package com.savantle.backend.services
 
-import com.savantle.backend.model.MLBPlayer
-import com.savantle.backend.model.MLBTeam
-import com.savantle.backend.model.PitcherLine
-import com.savantle.backend.model.RosterData
-import com.savantle.backend.model.RosterSnapshot
+import com.savantle.backend.model.entity.RosterSnapshot
+import com.savantle.backend.model.roster.MLBPlayer
+import com.savantle.backend.model.roster.MLBTeam
+import com.savantle.backend.model.roster.PitcherLine
+import com.savantle.backend.model.roster.RosterData
 import com.savantle.backend.repositories.RosterSnapshotRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

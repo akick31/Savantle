@@ -1,10 +1,10 @@
 package com.savantle.backend.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.savantle.backend.model.MLBPlayer
-import com.savantle.backend.model.MLBTeam
-import com.savantle.backend.model.MlbTeams
-import com.savantle.backend.model.PitcherLine
+import com.savantle.backend.model.roster.MLBPlayer
+import com.savantle.backend.model.roster.MLBTeam
+import com.savantle.backend.model.roster.MlbTeams
+import com.savantle.backend.model.roster.PitcherLine
 import com.savantle.backend.util.PlayerUtils
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

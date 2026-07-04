@@ -1,6 +1,6 @@
 package com.savantle.backend.services
 
-import com.savantle.backend.model.RandomGame
+import com.savantle.backend.model.game.RandomGame
 import com.savantle.backend.repositories.DailyPlayerRepository
 import com.savantle.backend.util.PlayerUtils
 import com.savantle.backend.util.PlayerUtils.PITCHER_POSITIONS

@@ -1,6 +1,6 @@
 package com.savantle.backend.controllers
 
-import com.savantle.backend.model.dto.RandomGuessRequest
+import com.savantle.backend.model.dto.request.RandomGuessRequest
 import com.savantle.backend.services.RandomGameResponseService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping

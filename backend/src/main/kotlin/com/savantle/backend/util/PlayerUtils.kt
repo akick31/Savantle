@@ -1,9 +1,9 @@
 package com.savantle.backend.util
 
-import com.savantle.backend.model.DailyPlayer
-import com.savantle.backend.model.MLBPlayer
-import com.savantle.backend.model.PlayerSnapshot
-import com.savantle.backend.model.RandomGame
+import com.savantle.backend.model.entity.DailyPlayer
+import com.savantle.backend.model.game.PlayerSnapshot
+import com.savantle.backend.model.game.RandomGame
+import com.savantle.backend.model.roster.MLBPlayer
 import java.text.Normalizer
 import kotlin.math.roundToInt
 

@@ -1,8 +1,8 @@
 package com.savantle.backend.services
 
-import com.savantle.backend.model.MLBPlayer
-import com.savantle.backend.model.PitcherLine
-import com.savantle.backend.model.RosterData
+import com.savantle.backend.model.roster.MLBPlayer
+import com.savantle.backend.model.roster.PitcherLine
+import com.savantle.backend.model.roster.RosterData
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service

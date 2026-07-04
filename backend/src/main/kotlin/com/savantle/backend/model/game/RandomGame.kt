@@ -1,4 +1,4 @@
-package com.savantle.backend.model
+package com.savantle.backend.model.game
 
 import java.time.Instant
 import java.time.LocalDate

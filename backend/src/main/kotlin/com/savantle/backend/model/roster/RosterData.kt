@@ -1,12 +1,7 @@
-package com.savantle.backend.model
+package com.savantle.backend.model.roster
 
 import java.time.Instant
 import java.time.LocalDate
-
-data class PitcherLine(
-    val inningsPitched: Double,
-    val gamesStarted: Int,
-)
 
 data class RosterData(
     val players: List<MLBPlayer>,

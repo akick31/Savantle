@@ -1,4 +1,4 @@
-package com.savantle.backend.model.dto
+package com.savantle.backend.model.dto.request
 
 data class ContactRequest(
     val name: String,

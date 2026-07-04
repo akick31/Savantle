@@ -1,7 +1,7 @@
 package com.savantle.backend.services
 
-import com.savantle.backend.model.DailyPlayer
-import com.savantle.backend.model.MLBPlayer
+import com.savantle.backend.model.entity.DailyPlayer
+import com.savantle.backend.model.roster.MLBPlayer
 import com.savantle.backend.repositories.DailyPlayerRepository
 import com.savantle.backend.util.PlayerUtils
 import com.savantle.backend.util.PlayerUtils.PITCHER_POSITIONS

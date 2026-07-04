@@ -1,7 +1,7 @@
 package com.savantle.backend.services
 
-import com.savantle.backend.model.Analytics
-import com.savantle.backend.model.dto.AnalyticsRequest
+import com.savantle.backend.model.dto.request.AnalyticsRequest
+import com.savantle.backend.model.entity.Analytics
 import com.savantle.backend.repositories.AnalyticsRepository
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity

@@ -1,4 +1,4 @@
-package com.savantle.backend.model.dto
+package com.savantle.backend.model.dto.request
 
 import com.fasterxml.jackson.annotation.JsonProperty
 
