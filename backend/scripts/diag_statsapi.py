@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Probe every statsapi.mlb.com request pattern the backend uses and report status codes.
 
-Run this on the VPS to see which requests MLB's WAF rejects (409/403) there:
+Run this on the VPS to see which requests MLB's WAF rejects (409/403/406) there:
   python3 diag_statsapi.py
 
-Includes known-bad controls (hydrate) and variants of the bulk stats call so a
-single run shows which parameters are safe.
+Includes variants of the bulk stats call so a single run shows which parameters
+are safe. Per-team /roster/40Man and the hydrate param are NOT probed — both
+were dropped from the backend (WAF rejected them too often to be worth the
+latency, and hydrate is deterministically rejected).
 """
 
 import sys
@@ -17,9 +19,7 @@ YEAR = time.localtime().tm_year
 
 PROBES = [
     ("teams (used)", f"https://statsapi.mlb.com/api/v1/teams?sportId=1&season={YEAR}"),
-    ("roster 40Man (used)", f"https://statsapi.mlb.com/api/v1/teams/119/roster/40Man"),
-    ("roster + hydrate (known bad)", f"https://statsapi.mlb.com/api/v1/teams/119/roster/40Man?hydrate=person"),
-    ("all players — pitch hands + roster fallback (used)", f"https://statsapi.mlb.com/api/v1/sports/1/players?season={YEAR}"),
+    ("all players — sole roster source (used)", f"https://statsapi.mlb.com/api/v1/sports/1/players?season={YEAR}"),
     ("season dates (used)", f"https://statsapi.mlb.com/api/v1/seasons/{YEAR}?sportId=1"),
     (
         "bulk hitting stats (used)",
