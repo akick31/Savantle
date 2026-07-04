@@ -42,7 +42,7 @@ export default function ReplayPage() {
       />
       <div className="space-y-1">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sv-border text-xs text-sv-muted">
-          Replay · {date}
+          Replay: {date}
         </div>
         <p className="text-[11px] text-sv-muted opacity-70">
           Percentiles reflect today's stats, not those from the date of this game.
@@ -74,7 +74,7 @@ export default function ReplayPage() {
             currentStreak={0}
             isDailyMode={false}
             onOpenPicker={() => setPickerOpen(true)}
-            onPlayAnotherLabel="Play Another Previous Game"
+            onPlayAnotherLabel="Play another previous game"
           />
         </>
       )}

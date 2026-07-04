@@ -66,7 +66,7 @@ export default function ReplayPickerModal({ open, onClose, onSelect }: ReplayPic
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Play a Previous Day">
+    <Modal open={open} onClose={onClose} title="Play a previous day">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-xs text-sv-muted">
@@ -83,7 +83,7 @@ export default function ReplayPickerModal({ open, onClose, onSelect }: ReplayPic
               <polyline points="21 16 21 21 16 21" />
               <line x1="15" y1="15" x2="21" y2="21" />
             </svg>
-            Random Day
+            Random day
           </button>
         </div>
 

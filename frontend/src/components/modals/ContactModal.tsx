@@ -46,7 +46,7 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
     'w-full bg-sv-bg border border-sv-border rounded-lg px-3 py-2 text-sm text-sv-text placeholder-sv-muted focus:outline-none focus:border-sv-accent transition-colors';
 
   return (
-    <Modal open={open} onClose={handleClose} title="Contact Me">
+    <Modal open={open} onClose={handleClose} title="Contact me">
       {status === 'sent' ? (
         <div className="text-center space-y-3 py-4">
           <div className="text-sv-accent text-3xl">&#10003;</div>
@@ -126,7 +126,7 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
             disabled={status === 'sending'}
             className="w-full py-2.5 bg-sv-accent text-sv-bg rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {status === 'sending' ? 'Sending...' : 'Send Message'}
+            {status === 'sending' ? 'Sending...' : 'Send message'}
           </button>
         </form>
       )}

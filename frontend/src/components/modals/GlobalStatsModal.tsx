@@ -29,7 +29,7 @@ export default function GlobalStatsModal({ open, onClose }: GlobalStatsModalProp
   const maxDist = stats ? Math.max(...[1,2,3,4,5].map(n => stats.guessDistribution[String(n)] ?? 0), 1) : 1;
 
   return (
-    <Modal open={open} onClose={onClose} title="Global Stats">
+    <Modal open={open} onClose={onClose} title="Global stats">
       {loading && (
         <div className="flex justify-center py-8">
           <svg className="animate-spin text-sv-muted" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -8,7 +8,7 @@ interface HowToPlayProps {
 
 export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) {
   return (
-    <Modal open={open} onClose={onClose} title="How to Play">
+    <Modal open={open} onClose={onClose} title="How to play">
       <div className="space-y-3 text-sm text-sv-muted max-h-[70vh] overflow-y-auto">
         <p className="text-sv-text font-medium">
           Guess a MLB player by their Baseball Savant percentile rankings.

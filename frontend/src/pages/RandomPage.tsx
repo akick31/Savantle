@@ -85,7 +85,7 @@ export default function RandomPage() {
             currentStreak={0}
             isDailyMode={false}
             onPlayAnother={() => { recordedRef.current = false; randomState.startGame(); }}
-            onPlayAnotherLabel="Play Another Random Player"
+            onPlayAnotherLabel="Play another random player"
           />
         </>
       )}

@@ -107,7 +107,7 @@ export default function EndScreen({
         <div>
           <p className="text-xl font-bold text-sv-text">{playerInfo.fullName}</p>
           <p className="text-sm text-sv-muted mt-0.5">
-            {playerInfo.position} · {playerInfo.teamName}
+            {playerInfo.position} for the {playerInfo.teamName}
           </p>
           <p className="text-xs text-sv-muted">{playerInfo.division}</p>
           <a
@@ -207,7 +207,7 @@ export default function EndScreen({
           onClick={handleShare}
           className="w-full py-3 bg-sv-accent text-sv-bg rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
         >
-          {copied ? 'Copied!' : 'Share Result'}
+          {copied ? 'Copied!' : 'Share result'}
         </button>
       )}
 
@@ -217,7 +217,7 @@ export default function EndScreen({
           className="w-full py-2.5 border border-sv-border text-sv-muted rounded-lg text-xs font-semibold hover:text-sv-text hover:border-sv-accent transition-colors flex items-center justify-center gap-1.5"
         >
           <CalendarIcon />
-          {onPlayAnotherLabel ?? 'Play Again'}
+          {onPlayAnotherLabel ?? 'Play again'}
         </button>
       )}
 
@@ -229,7 +229,7 @@ export default function EndScreen({
               className="flex-1 py-2.5 border border-sv-border text-sv-muted rounded-lg text-xs font-semibold hover:text-sv-text hover:border-sv-accent transition-colors flex items-center justify-center gap-1.5"
             >
               <CalendarIcon />
-              Play Previous Day
+              Play previous day
             </button>
           )}
           {onRandom && (
@@ -241,7 +241,7 @@ export default function EndScreen({
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
-              Play Random Player
+              Play random player
             </button>
           )}
         </div>
