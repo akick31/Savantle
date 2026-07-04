@@ -50,6 +50,8 @@ class DailyPlayer(
     var inningsPitched: Double? = null,
     @Column(name = "games_started")
     var gamesStarted: Int? = null,
+    @Column(name = "last_game_played")
+    var lastGamePlayed: LocalDate? = null,
     @Lob
     @JdbcTypeCode(SqlTypes.LONGVARBINARY)
     @Column(name = "screenshot", nullable = false, columnDefinition = "LONGBLOB")

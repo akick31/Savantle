@@ -56,6 +56,11 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
             least 75 plate appearances (batters) or 30 innings pitched (pitchers). This requirement is waived during the
             first 30 days of the season.
           </p>
+          <p className="mb-2">
+            Due to a recent change on MLB&apos;s Stats API, the game can&apos;t always tell whether a player is currently on
+            the injured list or optioned to the minors, so one could occasionally appear as the mystery player or in
+            search. Player reveals show their last game played so you can check.
+          </p>
           <p className="mb-3">
             Percentile data and screenshots are from{' '}
             <a
@@ -68,7 +73,7 @@ export default function HowToPlay({ open, onClose, onContact }: HowToPlayProps) 
             </a>
           </p>
         </div>
-        <div className="border-t border-sv-border pt-3 text-xs text-sv-muted">
+        <div className="border-t border-sv-border pt-3 text-xs text-sv-muted">g
           <p>
             Savantle is an independent project by Andrew at <a href="https://polyloon.com" target="_blank">Polyloon
             Studios</a>.

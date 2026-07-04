@@ -110,6 +110,9 @@ export default function EndScreen({
             {playerInfo.position} · {playerInfo.teamName}
           </p>
           <p className="text-xs text-sv-muted">{playerInfo.division}</p>
+          {playerInfo.lastGamePlayed && (
+            <p className="text-xs text-sv-muted mt-0.5">Last game played: {playerInfo.lastGamePlayed}</p>
+          )}
           <a
             href={savantUrl}
             target="_blank"

@@ -14,7 +14,7 @@ import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
 import ApiNoticeModal, { API_NOTICE_ACTIVE } from '../components/modals/ApiNoticeModal';
 import { GameMode, ModalId } from '../types';
 
-const API_NOTICE_SEEN_KEY = 'savantle-api-notice-seen';
+const API_NOTICE_SEEN_KEY = 'savantle-api-notice-seen-v2';
 
 interface ShellProps {
   gameMode: GameMode;
@@ -60,7 +60,6 @@ export default function Shell({ gameMode, children }: ShellProps) {
         onRandom={() => navigate('/random')}
         gameMode={gameMode}
         onBackToToday={() => navigate('/')}
-        onApiNotice={API_NOTICE_ACTIVE ? () => setApiNoticeOpen(true) : undefined}
       />
 
       {children}

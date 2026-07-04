@@ -27,6 +27,7 @@ export interface PlayerInfo {
   division: string;
   mlbamId: string;
   savantUrl?: string;
+  lastGamePlayed?: string;
 }
 
 export interface GuessResult {

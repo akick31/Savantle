@@ -1,6 +1,7 @@
 package com.savantle.backend.model
 
 import java.time.Instant
+import java.time.LocalDate
 
 data class RandomGame(
     val gameId: String,
@@ -18,5 +19,6 @@ data class RandomGame(
     val screenshot: ByteArray,
     val inningsPitched: Double? = null,
     val gamesStarted: Int? = null,
+    val lastGamePlayed: LocalDate? = null,
     val createdAt: Instant = Instant.now(),
 )

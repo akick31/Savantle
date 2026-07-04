@@ -112,6 +112,7 @@ class RandomGameService(
                     ?: continue
 
             val pitcherStats = if (isPitcher) rosterDataService.pitcherLineFor(candidate.mlbamId, LocalDate.now().year) else null
+            val lastGamePlayed = rosterDataService.lastGamePlayedFor(candidate.mlbamId, LocalDate.now().year, isPitcher)
             val gameId = UUID.randomUUID().toString()
             return RandomGame(
                 gameId = gameId,
@@ -129,6 +130,7 @@ class RandomGameService(
                 screenshot = result.pngBytes,
                 inningsPitched = pitcherStats?.first,
                 gamesStarted = pitcherStats?.second,
+                lastGamePlayed = lastGamePlayed,
             )
         }
 

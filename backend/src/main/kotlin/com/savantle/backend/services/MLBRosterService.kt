@@ -203,6 +203,27 @@ class MLBRosterService {
     }
 
     /**
+     * Best-effort, single call per player — used only for the curated/random daily reveal (not
+     * bulk), so a WAF rejection just means the game omits this detail rather than failing.
+     */
+    fun fetchLastGamePlayed(
+        mlbamId: Int,
+        year: Int,
+        isPitcher: Boolean,
+    ): LocalDate? {
+        val group = if (isPitcher) "pitching" else "hitting"
+        return try {
+            val json = get("https://statsapi.mlb.com/api/v1/people/$mlbamId/stats?stats=gameLog&group=$group&season=$year")
+            val splits = mapper.readTree(json).path("stats").firstOrNull()?.path("splits") ?: return null
+            val dateStr = splits.lastOrNull()?.path("date")?.asText() ?: return null
+            if (dateStr.isBlank()) null else LocalDate.parse(dateStr)
+        } catch (e: Exception) {
+            log.warn("Failed to fetch last game played for mlbamId=$mlbamId year=$year: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * Roster source is the single bulk /sports/1/players call — one request covering all 30
      * teams, far more reliable than 30 sequential per-team /roster/40Man calls (which were tried
      * as a status-enrichment pass and dropped: the WAF rejects them too often to be worth the

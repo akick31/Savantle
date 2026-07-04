@@ -9,13 +9,19 @@ interface ApiNoticeModalProps {
 
 export default function ApiNoticeModal({ open, onClose }: ApiNoticeModalProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Known issue: player search">
+    <Modal open={open} onClose={onClose} title="Update: player search issue">
       <div className="text-sv-text text-sm leading-relaxed">
         <p>
-          Player search (autofill) isn&apos;t returning every player right now because of recent changes on MLB&apos;s Stats API.
+          The player search (autofill) issue from the past few days, caused by changes on MLB&apos;s Stats API, should now
+          be resolved. I&apos;ll be monitoring it closely over the next few days to make sure it stays fixed.
         </p>
         <p className="mt-4">
-          I&apos;m aware of this and actively working on a fix. Sorry for the inconvenience!
+          One side effect of the fix: the game can no longer always tell whether a player is currently on the injured
+          list or optioned to the minors, so an inactive player could occasionally show up as the mystery player or in
+          search. To help spot this, player reveals now show their last game played.
+        </p>
+        <p className="mt-4">
+          Thanks for your patience, and sorry for the inconvenience!
         </p>
       </div>
       <button

@@ -1,5 +1,7 @@
 package com.savantle.backend.model
 
+import java.time.LocalDate
+
 data class PlayerSnapshot(
     val fullName: String,
     val mlbamId: Int,
@@ -13,4 +15,5 @@ data class PlayerSnapshot(
     val savantUrl: String,
     val inningsPitched: Double? = null,
     val gamesStarted: Int? = null,
+    val lastGamePlayed: LocalDate? = null,
 )

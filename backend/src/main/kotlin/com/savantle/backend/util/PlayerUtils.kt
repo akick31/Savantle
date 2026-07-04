@@ -37,17 +37,21 @@ object PlayerUtils {
         confirmed: Boolean,
     ): Map<String, Any> = mapOf("type" to type, "label" to label, "value" to value, "confirmed" to confirmed)
 
-    fun buildPlayerInfo(player: PlayerSnapshot): Map<String, String> =
-        mapOf(
-            "fullName" to player.fullName,
-            "position" to formatPosition(player.isPitcher, player.throwingHand, player.position),
-            "teamName" to player.teamName,
-            "teamAbbr" to player.teamAbbr,
-            "league" to player.league,
-            "division" to player.division,
-            "mlbamId" to player.mlbamId.toString(),
-            "savantUrl" to player.savantUrl,
-        )
+    fun buildPlayerInfo(player: PlayerSnapshot): Map<String, String> {
+        val info =
+            mutableMapOf(
+                "fullName" to player.fullName,
+                "position" to formatPosition(player.isPitcher, player.throwingHand, player.position),
+                "teamName" to player.teamName,
+                "teamAbbr" to player.teamAbbr,
+                "league" to player.league,
+                "division" to player.division,
+                "mlbamId" to player.mlbamId.toString(),
+                "savantUrl" to player.savantUrl,
+            )
+        if (player.lastGamePlayed != null) info["lastGamePlayed"] = player.lastGamePlayed.toString()
+        return info
+    }
 
     fun buildHints(
         player: PlayerSnapshot,
@@ -133,6 +137,7 @@ fun DailyPlayer.toSnapshot() =
         savantUrl = savantUrl,
         inningsPitched = inningsPitched,
         gamesStarted = gamesStarted,
+        lastGamePlayed = lastGamePlayed,
     )
 
 fun RandomGame.toSnapshot() =
@@ -149,4 +154,5 @@ fun RandomGame.toSnapshot() =
         savantUrl = savantUrl,
         inningsPitched = inningsPitched,
         gamesStarted = gamesStarted,
+        lastGamePlayed = lastGamePlayed,
     )

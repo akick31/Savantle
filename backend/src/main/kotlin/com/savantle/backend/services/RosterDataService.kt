@@ -190,6 +190,12 @@ class RosterDataService(
         pitcherLines[mlbamId]?.let { it.inningsPitched to it.gamesStarted }
             ?: mlbRosterService.fetchPitcherStats(mlbamId, year)
 
+    fun lastGamePlayedFor(
+        mlbamId: Int,
+        year: Int,
+        isPitcher: Boolean,
+    ): LocalDate? = mlbRosterService.fetchLastGamePlayed(mlbamId, year, isPitcher)
+
     fun isEarlySeason(date: LocalDate): Boolean {
         val start = seasonStartDate ?: return true
         return date < start.plusDays(earlySeasonDays)
