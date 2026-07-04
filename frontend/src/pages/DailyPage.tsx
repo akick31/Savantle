@@ -9,8 +9,6 @@ import PercentileDisplay from '../components/game/PercentileDisplay';
 import { dailyScreenshotUrl, recordAnalytics, fetchGlobalStats } from '../services/api';
 import { GlobalStats } from '../types';
 
-const HTP_SHOWN_KEY = 'savantle-htp-shown';
-
 export default function DailyPage() {
   const navigate = useNavigate();
   const dailyState = useGameState({ persist: true });
@@ -19,12 +17,6 @@ export default function DailyPage() {
   const guessesRef = useRef(dailyState.guesses);
   guessesRef.current = dailyState.guesses;
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
-
-  useEffect(() => {
-    if (dailyState.status === 'playing' && !localStorage.getItem(HTP_SHOWN_KEY)) {
-      localStorage.setItem(HTP_SHOWN_KEY, '1');
-    }
-  }, [dailyState.status]);
 
   useEffect(() => {
     const s = dailyState.status;

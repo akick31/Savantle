@@ -25,7 +25,7 @@ export default function GlobalStatsModal({ open, onClose }: GlobalStatsModalProp
   }, [open]);
 
   const totalGames = stats ? stats.totalWins + stats.totalLosses : 0;
-  const winPct = totalGames > 0 ? Math.round((stats!.totalWins / totalGames) * 100) : 0;
+  const winPct = stats && totalGames > 0 ? Math.round((stats.totalWins / totalGames) * 100) : 0;
   const maxDist = stats ? Math.max(...[1,2,3,4,5].map(n => stats.guessDistribution[String(n)] ?? 0), 1) : 1;
 
   return (
