@@ -17,4 +17,4 @@ COPY --from=build /app/dist ./dist
 
 # Updated to match your Nginx proxy_pass and Jenkins port mapping
 EXPOSE 999
-CMD ["serve", "-s", "dist", "-l", "999"]
+CMD ["serve", "dist", "-l", "999"]

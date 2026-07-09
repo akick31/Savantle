@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/replay/:date", "destination": "/replay/index.html" }
+  ]
+}

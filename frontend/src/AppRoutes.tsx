@@ -7,8 +7,13 @@ import RandomPage from './pages/RandomPage';
 import ReplayPickerModal from './components/modals/ReplayPickerModal';
 import { recordAnalytics } from './services/api';
 import { getSavantleAnalyticsDate } from './utils/share';
+import { SITE_NAME } from './features/seo/meta';
 
-export default function App() {
+export function AppRoutes() {
+  useEffect(() => {
+    document.title = SITE_NAME;
+  }, []);
+
   useEffect(() => {
     const today = getSavantleAnalyticsDate();
     const sessionKey = `savantle-session-${today}`;

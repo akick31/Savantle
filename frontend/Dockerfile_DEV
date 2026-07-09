@@ -17,4 +17,4 @@ COPY --from=build /app/dist ./dist
 
 # Updated to port 921 for Savantle DEV
 EXPOSE 921
-CMD ["serve", "-s", "dist", "-l", "921"]
+CMD ["serve", "dist", "-l", "921"]
