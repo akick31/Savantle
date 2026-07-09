@@ -30,6 +30,9 @@ export default function Header({
       <h1 className="text-xl md:text-2xl font-pixel text-sv-accent text-center">
         Savantle
       </h1>
+      <p className="text-[11px] md:text-xs text-sv-muted text-center">
+        Daily Baseball Savant player guessing game
+      </p>
 
       <div className="flex items-center justify-center gap-1">
         <button onClick={onHowToPlay} className={iconBtn} aria-label="How to play" title="How to play">
