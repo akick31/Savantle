@@ -10,7 +10,6 @@ import ContactModal from '../components/modals/ContactModal';
 import ProjectsModal from '../components/modals/ProjectsModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
 import GlobalStatsModal from '../components/modals/GlobalStatsModal';
-import DowntimeApologyModal from '../components/modals/DowntimeApologyModal';
 import ApiNoticeModal, { API_NOTICE_ACTIVE } from '../components/modals/ApiNoticeModal';
 import { GameMode, ModalId } from '../types';
 
@@ -119,7 +118,6 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <ProjectsModal open={activeModal === 'projects'} onClose={closeModal} />
       <ReplayPickerModal open={activeModal === 'replay-picker'} onClose={closeModal} onSelect={handleReplaySelect} />
       <GlobalStatsModal open={activeModal === 'global-stats'} onClose={closeModal} />
-      <DowntimeApologyModal />
       <ApiNoticeModal open={apiNoticeOpen} onClose={() => setApiNoticeOpen(false)} />
     </div>
   );

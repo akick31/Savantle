@@ -12,13 +12,6 @@ export function getSavantleAnalyticsDate(date: Date = new Date()): string {
   }).format(date);
 }
 
-/** Eastern calendar May 6–7, 2026 (through midnight Eastern into May 8). */
-const EW_DOWNTIME_APOLOGY_DATES = new Set(['2026-05-06', '2026-05-07']);
-
-export function isEffectivelyWildDowntimeApologyWindow(date: Date = new Date()): boolean {
-  return EW_DOWNTIME_APOLOGY_DATES.has(getSavantleAnalyticsDate(date));
-}
-
 export function getLocalDate(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
