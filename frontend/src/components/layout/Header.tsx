@@ -28,7 +28,13 @@ export default function Header({
   return (
     <header className="w-full max-w-[480px] mb-4 space-y-1">
       <h1 className="text-xl md:text-2xl font-pixel text-sv-accent text-center">
-        Savantle
+        <button
+          onClick={onBackToToday}
+          className="hover:text-sv-text transition-colors"
+          title="Go to today's Savantle"
+        >
+          Savantle
+        </button>
       </h1>
       <p className="text-[11px] md:text-xs text-sv-muted text-center">
         Daily Baseball Savant player guessing game
