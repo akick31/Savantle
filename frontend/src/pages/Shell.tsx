@@ -11,9 +11,15 @@ import ProjectsModal from '../components/modals/ProjectsModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
 import GlobalStatsModal from '../components/modals/GlobalStatsModal';
 import ApiNoticeModal, { API_NOTICE_ACTIVE } from '../components/modals/ApiNoticeModal';
+import WardleAnnounceModal, {
+  daysSinceWardleAnnounceLaunch,
+  WARDLE_ANNOUNCE_ICON_WINDOW_DAYS,
+} from '../components/modals/WardleAnnounceModal';
+import { getSavantleAnalyticsDate } from '../utils/share';
 import { GameMode, ModalId } from '../types';
 
 const API_NOTICE_SEEN_KEY = 'savantle-api-notice-seen-v2';
+const WARDLE_ANNOUNCE_SEEN_KEY = 'savantle-wardle-announce-seen-v1';
 
 interface ShellProps {
   gameMode: GameMode;
@@ -26,6 +32,11 @@ export default function Shell({ gameMode, children }: ShellProps) {
   const { stats } = useStats();
   const { settings, updateSettings } = useSettings();
   const [apiNoticeOpen, setApiNoticeOpen] = useState(false);
+  const [wardleAnnounceOpen, setWardleAnnounceOpen] = useState(false);
+
+  const wardleAnnounceDaysSinceLaunch = daysSinceWardleAnnounceLaunch(getSavantleAnalyticsDate());
+  const showWardleAnnounceIcon =
+    wardleAnnounceDaysSinceLaunch >= 0 && wardleAnnounceDaysSinceLaunch <= WARDLE_ANNOUNCE_ICON_WINDOW_DAYS;
 
   useEffect(() => {
     if (!API_NOTICE_ACTIVE) return;
@@ -33,6 +44,13 @@ export default function Shell({ gameMode, children }: ShellProps) {
     localStorage.setItem(API_NOTICE_SEEN_KEY, '1');
     setApiNoticeOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (wardleAnnounceDaysSinceLaunch !== 0) return;
+    if (localStorage.getItem(WARDLE_ANNOUNCE_SEEN_KEY)) return;
+    localStorage.setItem(WARDLE_ANNOUNCE_SEEN_KEY, '1');
+    setWardleAnnounceOpen(true);
+  }, [wardleAnnounceDaysSinceLaunch]);
 
   const activeModal = searchParams.get('modal') as ModalId | null;
 
@@ -59,6 +77,8 @@ export default function Shell({ gameMode, children }: ShellProps) {
         onRandom={() => navigate('/random')}
         gameMode={gameMode}
         onBackToToday={() => navigate('/')}
+        onWardleAnnounce={() => setWardleAnnounceOpen(true)}
+        showWardleAnnounceIcon={showWardleAnnounceIcon}
       />
 
       {children}
@@ -119,6 +139,7 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <ReplayPickerModal open={activeModal === 'replay-picker'} onClose={closeModal} onSelect={handleReplaySelect} />
       <GlobalStatsModal open={activeModal === 'global-stats'} onClose={closeModal} />
       <ApiNoticeModal open={apiNoticeOpen} onClose={() => setApiNoticeOpen(false)} />
+      <WardleAnnounceModal open={wardleAnnounceOpen} onClose={() => setWardleAnnounceOpen(false)} />
     </div>
   );
 }

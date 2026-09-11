@@ -7,6 +7,16 @@ interface ProjectsModalProps {
 
 const PROJECTS = [
   {
+    name: 'Wardle',
+    url: 'https://wardlegame.app',
+    description: 'A daily game to guess the full-season WAR of 5 real MLB players from history.',
+  },
+  {
+    name: 'Calibration',
+    url: 'https://calibrationgame.app',
+    description: 'A daily game to guess a range that contains the true value for 5 real facts, with a photo and a numeric question.',
+  },
+  {
     name: 'MSRP',
     url: 'https://msrpgame.com/',
     description: 'A daily game to guess the sale price of 5 eBay auction items.',

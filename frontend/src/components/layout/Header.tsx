@@ -1,3 +1,5 @@
+import { InfoIcon } from '../ui/Icons';
+
 type GameMode = 'daily' | 'replay' | 'random';
 
 interface HeaderProps {
@@ -9,6 +11,8 @@ interface HeaderProps {
   onRandom: () => void;
   gameMode?: GameMode;
   onBackToToday?: () => void;
+  onWardleAnnounce?: () => void;
+  showWardleAnnounceIcon?: boolean;
 }
 
 export default function Header({
@@ -20,6 +24,8 @@ export default function Header({
   onRandom,
   gameMode = 'daily',
   onBackToToday,
+  onWardleAnnounce,
+  showWardleAnnounceIcon = false,
 }: HeaderProps) {
   const iconBtn = "p-2 text-sv-muted hover:text-sv-text transition-colors";
   const textBtn = (active: boolean) =>
@@ -83,6 +89,17 @@ export default function Header({
             <circle cx="12" cy="12" r="3" />
           </svg>
         </button>
+
+        {showWardleAnnounceIcon && (
+          <button
+            onClick={onWardleAnnounce}
+            className="p-2 text-yellow-400 hover:text-yellow-300 transition-colors"
+            aria-label="New game announcement"
+            title="New game announcement"
+          >
+            <InfoIcon size={20} />
+          </button>
+        )}
       </div>
 
     </header>
