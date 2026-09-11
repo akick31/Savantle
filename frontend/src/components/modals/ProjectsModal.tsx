@@ -17,11 +17,6 @@ const PROJECTS = [
     description: 'A daily game to guess a range that contains the true value for 5 real facts, with a photo and a numeric question.',
   },
   {
-    name: 'MSRP',
-    url: 'https://msrpgame.com/',
-    description: 'A daily game to guess the sale price of 5 eBay auction items.',
-  },
-  {
     name: 'Sine',
     url: 'https://apps.apple.com/us/app/sine-the-waveform-puzzle/id6756984657',
     description: 'An oscilloscope puzzle game on iOS. Try to match your own waveform with procedurally generated ones.',
