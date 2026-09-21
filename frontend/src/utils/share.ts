@@ -1,6 +1,6 @@
 import { GameStatus } from '../types';
 
-const LAUNCH_DATE = new Date('2026-04-30');
+const LAUNCH_UTC_MS = Date.UTC(2026, 3, 30);
 
 /** Calendar date in America/New_York (matches server analytics bucketing). */
 export function getSavantleAnalyticsDate(date: Date = new Date()): string {
@@ -18,8 +18,7 @@ export function getLocalDate(date: Date = new Date()): string {
 
 export function calculateSavantleNumber(date: string): number {
   const [year, month, day] = date.split('-').map(Number);
-  const gameDate = new Date(year, month - 1, day);
-  const daysSinceLaunch = Math.floor((gameDate.getTime() - LAUNCH_DATE.getTime()) / (1000 * 60 * 60 * 24));
+  const daysSinceLaunch = Math.floor((Date.UTC(year, month - 1, day) - LAUNCH_UTC_MS) / (1000 * 60 * 60 * 24));
   return Math.max(1, daysSinceLaunch + 1);
 }
 
