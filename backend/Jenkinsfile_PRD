@@ -113,7 +113,7 @@ pipeline {
                             management.endpoints.web.exposure.include=health
                             management.health.mail.enabled=false
                             savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
-                            spring.mail.host=smtp.protonmail.ch
+                            spring.mail.host=smtp.fastmail.com
                             spring.mail.port=587
                             spring.mail.username=${env.SAVANTLE_MAIL_USERNAME}
                             spring.mail.password=${env.SAVANTLE_MAIL_PASSWORD}
