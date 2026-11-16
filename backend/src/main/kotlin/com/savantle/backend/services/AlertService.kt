@@ -9,8 +9,8 @@ import org.springframework.stereotype.Service
 @Service
 class AlertService(
     private val mailSender: JavaMailSender,
-    @Value("\${spring.mail.username}") private val mailUsername: String,
-    @Value("\${savantle.alert.email:\${spring.mail.username}}") private val alertEmail: String,
+    @Value("\${contact.email}") private val contactEmail: String,
+    @Value("\${savantle.alert.email:\${contact.email}}") private val alertEmail: String,
 ) {
     private val log = LoggerFactory.getLogger(AlertService::class.java)
 
@@ -21,7 +21,7 @@ class AlertService(
         try {
             val mail = SimpleMailMessage()
             mail.setTo(alertEmail)
-            mail.setFrom(mailUsername)
+            mail.setFrom(contactEmail)
             mail.subject = "[Savantle Alert] $subject"
             mail.text = body
             mailSender.send(mail)

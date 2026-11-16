@@ -11,7 +11,7 @@ pipeline {
         DB_PASSWORD = credentials('DB_PASSWORD')
         SAVANTLE_ADMIN_KEY = credentials('SAVANTLE_ADMIN_KEY')
         SAVANTLE_ALERT_EMAIL = credentials('SAVANTLE_ALERT_EMAIL')
-        SAVANTLE_MAIL_USERNAME = credentials('SAVANTLE_MAIL_USERNAME')
+        EMAIL_USERNAME = credentials('EMAIL_USERNAME')
         SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
@@ -66,7 +66,8 @@ pipeline {
                             savantle.admin.api-key=${env.SAVANTLE_ADMIN_KEY}
                             spring.mail.host=smtp.fastmail.com
                             spring.mail.port=587
-                            spring.mail.username=${env.SAVANTLE_MAIL_USERNAME}
+                            spring.mail.username=${env.EMAIL_USERNAME}
+                            contact.email=contact@polyloon.com
                             spring.mail.password=${env.SAVANTLE_MAIL_PASSWORD}
                             spring.mail.properties.mail.smtp.auth=true
                             spring.mail.properties.mail.smtp.starttls.enable=true

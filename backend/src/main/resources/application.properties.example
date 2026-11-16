@@ -20,7 +20,8 @@ savantle.qualification.pitcher-min-ip=15.0
 savantle.qualification.early-season-days=30
 savantle.roster.max-staleness-days=14
 savantle.admin.api-key=YOUR_SECRET_KEY_HERE
-# Optional: where curation-failure alerts are emailed (defaults to spring.mail.username)
+contact.email=contact@polyloon.com
+# Optional: where curation-failure alerts are emailed (defaults to contact.email)
 #savantle.alert.email=you@example.com
 
 spring.cache.type=caffeine
