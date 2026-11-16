@@ -31,6 +31,8 @@ class ContactService(
     }
 
     fun send(request: ContactRequest) {
+        if (!request.company.isNullOrBlank()) return
+
         val name = request.name.trim().take(100)
         val email = request.email.trim().take(200)
         val subject = request.subject.trim().take(200)

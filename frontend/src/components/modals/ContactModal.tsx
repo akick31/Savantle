@@ -12,6 +12,7 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [company, setCompany] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -20,6 +21,7 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
     setEmail('');
     setSubject('');
     setMessage('');
+    setCompany('');
     setStatus('idle');
     setErrorMsg('');
   }
@@ -34,7 +36,7 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
     setStatus('sending');
     setErrorMsg('');
     try {
-      await submitContact({ name, email, subject, message });
+      await submitContact({ name, email, subject, message, company });
       setStatus('sent');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Something went wrong.');
@@ -61,6 +63,16 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
+          <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+            <input
+              type="text"
+              name="company"
+              value={company}
+              onChange={e => setCompany(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
           <p className="text-xs text-sv-muted">
             Send suggestions, bug reports, or anything else.
           </p>

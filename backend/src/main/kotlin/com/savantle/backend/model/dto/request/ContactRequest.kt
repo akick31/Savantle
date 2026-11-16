@@ -5,4 +5,5 @@ data class ContactRequest(
     val email: String,
     val subject: String,
     val message: String,
+    val company: String? = null,
 )

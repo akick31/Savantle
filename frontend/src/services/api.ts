@@ -113,6 +113,7 @@ export async function submitContact(payload: {
   email: string;
   subject: string;
   message: string;
+  company: string;
 }): Promise<void> {
   const res = await fetch(`${BASE_URL}/contact`, {
     method: 'POST',
