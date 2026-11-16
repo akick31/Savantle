@@ -10,7 +10,6 @@ import ContactModal from '../components/modals/ContactModal';
 import ProjectsModal from '../components/modals/ProjectsModal';
 import ReplayPickerModal from '../components/modals/ReplayPickerModal';
 import GlobalStatsModal from '../components/modals/GlobalStatsModal';
-import ApiNoticeModal, { API_NOTICE_ACTIVE } from '../components/modals/ApiNoticeModal';
 import WardleAnnounceModal, {
   daysSinceWardleAnnounceLaunch,
   WARDLE_ANNOUNCE_ICON_WINDOW_DAYS,
@@ -18,7 +17,6 @@ import WardleAnnounceModal, {
 import { getSavantleAnalyticsDate } from '../utils/share';
 import { GameMode, ModalId } from '../types';
 
-const API_NOTICE_SEEN_KEY = 'savantle-api-notice-seen-v2';
 const WARDLE_ANNOUNCE_SEEN_KEY = 'savantle-wardle-announce-seen-v1';
 
 interface ShellProps {
@@ -31,19 +29,11 @@ export default function Shell({ gameMode, children }: ShellProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { stats } = useStats();
   const { settings, updateSettings } = useSettings();
-  const [apiNoticeOpen, setApiNoticeOpen] = useState(false);
   const [wardleAnnounceOpen, setWardleAnnounceOpen] = useState(false);
 
   const wardleAnnounceDaysSinceLaunch = daysSinceWardleAnnounceLaunch(getSavantleAnalyticsDate());
   const showWardleAnnounceIcon =
     wardleAnnounceDaysSinceLaunch >= 0 && wardleAnnounceDaysSinceLaunch <= WARDLE_ANNOUNCE_ICON_WINDOW_DAYS;
-
-  useEffect(() => {
-    if (!API_NOTICE_ACTIVE) return;
-    if (localStorage.getItem(API_NOTICE_SEEN_KEY)) return;
-    localStorage.setItem(API_NOTICE_SEEN_KEY, '1');
-    setApiNoticeOpen(true);
-  }, []);
 
   useEffect(() => {
     if (wardleAnnounceDaysSinceLaunch !== 0) return;
@@ -138,7 +128,6 @@ export default function Shell({ gameMode, children }: ShellProps) {
       <ProjectsModal open={activeModal === 'projects'} onClose={closeModal} />
       <ReplayPickerModal open={activeModal === 'replay-picker'} onClose={closeModal} onSelect={handleReplaySelect} />
       <GlobalStatsModal open={activeModal === 'global-stats'} onClose={closeModal} />
-      <ApiNoticeModal open={apiNoticeOpen} onClose={() => setApiNoticeOpen(false)} />
       <WardleAnnounceModal open={wardleAnnounceOpen} onClose={() => setWardleAnnounceOpen(false)} />
     </div>
   );
