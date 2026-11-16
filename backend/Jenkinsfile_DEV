@@ -13,8 +13,6 @@ pipeline {
         SAVANTLE_ALERT_EMAIL = credentials('SAVANTLE_ALERT_EMAIL')
         EMAIL_USERNAME = credentials('EMAIL_USERNAME')
         SAVANTLE_MAIL_PASSWORD = credentials('SAVANTLE_MAIL_PASSWORD')
-        JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
-        PATH = "/usr/lib/jvm/java-17-openjdk-amd64/bin:${env.PATH}"
         GRADLE_USER_HOME = "${env.WORKSPACE}/.gradle"
         DOCKER_BUILDKIT = '1'
     }
